@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lower oesophageal barrier: interactive mechanical model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#ECEFF2; --panel:#F8F9FA; --ink:#1B2631; --muted:#5A6772; --line:#D1D8DE;
+  --accent:#2F6F73; --accent-ink:#FFFFFF; --chip:#E1E6EA;
+  --thorax:#E3EAF0; --abdomen:#F0E9E3;
+  --c-les:#7A3A8C; --c-crus:#C2603A; --c-abd:#2E8A8A; --c-flap:#6E9A3A; --c-grad:#1B2631;
+  --c-reflux:rgba(214,60,60,.15); --c-bad:#B83A3A; --c-good:#2E7D4F;
+  font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color:var(--ink); background:var(--bg);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#10171D; --panel:#16202A; --ink:#DCE4EA; --muted:#93A1AC; --line:#2A3743;
+    --accent:#62B5B3; --accent-ink:#0E1A1A; --chip:#1F2B35;
+    --thorax:#17232D; --abdomen:#221D1A; --c-grad:#E8EEF2; --c-reflux:rgba(240,90,90,.22);
+    --c-bad:#E07070; --c-good:#6CC08F;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10171D; --panel:#16202A; --ink:#DCE4EA; --muted:#93A1AC; --line:#2A3743;
+  --accent:#62B5B3; --accent-ink:#0E1A1A; --chip:#1F2B35;
+  --thorax:#17232D; --abdomen:#221D1A; --c-grad:#E8EEF2; --c-reflux:rgba(240,90,90,.22);
+  --c-bad:#E07070; --c-good:#6CC08F;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:auto}
+body{margin:0;background:var(--bg);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 40px}
+h1{font-size:26px;line-height:1.15;font-weight:600;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:6px 0 0;max-width:70ch}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:18px 0 14px;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.bar label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+select,button{font:inherit;font-size:14px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 10px}
+button{cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-width:78px;font-weight:500}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.timebox{display:flex;align-items:center;gap:10px;flex:1 1 260px;min-width:220px}
+.timebox input{flex:1}
+.tnum{font-variant-numeric:tabular-nums;font-size:14px;min-width:86px;text-align:right}
+input[type=range]{accent-color:var(--accent)}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;position:relative}
+.stage canvas{display:block;width:100%;height:auto;border-radius:8px}
+.stage .opts{display:flex;gap:16px;padding:6px 6px 2px;font-size:13px;color:var(--muted)}
+.rail{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h2{font-size:15px;font-weight:600;margin:0 0 10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--chip);color:var(--muted);border:1px solid transparent;transition:background .2s,color .2s}
+.chip.on{background:var(--accent);color:var(--accent-ink);font-weight:500}
+.narr{margin:12px 0 0;min-height:4.4em;font-size:15px;max-width:62ch}
+.margin{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;font-size:14px}
+.margin strong{font-variant-numeric:tabular-nums;font-size:18px}
+.rows{display:grid;grid-template-columns:auto 1fr auto;gap:5px 10px;align-items:center;font-size:13px}
+.rows .lbl{color:var(--muted);white-space:nowrap}
+.rows .track{height:7px;background:var(--chip);border-radius:4px;overflow:hidden}
+.rows .fill{height:100%;width:0;border-radius:4px}
+.rows .val{font-variant-numeric:tabular-nums;text-align:right;min-width:72px}
+.rows .sep{grid-column:1/-1;height:1px;background:var(--line);margin:4px 0}
+.state-rows{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin-top:10px}
+.state-rows span:nth-child(odd){color:var(--muted)}
+.params .p{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:2px 10px;align-items:center;margin-bottom:8px;font-size:13px}
+.params .p label{grid-column:1/-1;color:var(--muted)}
+.params .p output{text-align:right;font-variant-numeric:tabular-nums}
+.params .row2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.charts{margin-top:16px;display:grid;gap:14px}
+.chart{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.chart h2{font-size:15px;font-weight:600;margin:0}
+.chart p{margin:2px 0 8px;color:var(--muted);font-size:13px;max-width:80ch}
+.chart canvas{display:block;width:100%;cursor:ew-resize;touch-action:none}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);margin-bottom:6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend i.line{height:3px;border-radius:2px;vertical-align:3px}
+footer{color:var(--muted);font-size:12.5px;margin-top:18px;max-width:90ch}
+@media (max-width:520px){.wrap{padding:14px 12px 30px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The lower oesophageal barrier, as a machine</h1>
+  <p class="sub">Two ring actuators, a linear actuator, an elastic tether and a passive flap, driven by the swallow and TLESR programmes. Reflux appears only when the gastro-oesophageal gradient beats the summed closing pressure.</p>
+
+  <div class="bar" role="group" aria-label="Playback">
+    <label>Scenario
+      <select id="scen"></select>
+    </label>
+    <button id="play" class="primary" type="button">Pause</button>
+    <button id="restart" type="button">Restart</button>
+    <label>Speed
+      <select id="speed">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </label>
+    <div class="timebox">
+      <input id="time" type="range" min="0" max="10" step="0.02" value="0" aria-label="Time">
+      <span class="tnum" id="tnum">0.0 s</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="stage">
+      <canvas id="anat" width="520" height="700" aria-label="Coronal schematic of the oesophagogastric junction"></canvas>
+      <div class="opts">
+        <label><input type="checkbox" id="labels" checked> Labels</label>
+        <span>Coronal view, patient's left on the right. Scale on the right is z in cm from the hiatus.</span>
+      </div>
+    </div>
+
+    <div class="rail">
+      <div class="card">
+        <h2>State</h2>
+        <div class="chips" id="chips"></div>
+        <p class="narr" id="narr"></p>
+      </div>
+
+      <div class="card">
+        <div class="margin"><span>Barrier margin (closing pressure − gradient)</span><strong id="marg">0</strong></div>
+        <div class="rows" id="rows"></div>
+        <div class="state-rows">
+          <span>Oesophageal body (C8)</span><span id="body">–</span>
+          <span>UOS (C9)</span><span id="uos">–</span>
+        </div>
+      </div>
+
+      <div class="card params">
+        <h2>Parameters</h2>
+        <div class="p"><label for="p-les">Basal LES tone (mmHg)</label><input type="range" id="p-les" min="0" max="40" step="1"><output id="o-les"></output></div>
+        <div class="p"><label for="p-crus">Crural inspiratory squeeze (mmHg)</label><input type="range" id="p-crus" min="0" max="30" step="1"><output id="o-crus"></output></div>
+        <div class="p"><label for="p-hernia">LES–crus separation, hiatus hernia (cm)</label><input type="range" id="p-hernia" min="0" max="4" step="0.1"><output id="o-hernia"></output></div>
+        <div class="p"><label for="p-vigour">Peristaltic vigour (1 = normal, under 0.5 fails)</label><input type="range" id="p-vigour" min="0" max="1.5" step="0.05"><output id="o-vigour"></output></div>
+        <div class="row2">
+          <label style="font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center">Bolus
+            <select id="p-bolus">
+              <option value="supine">5 ml liquid, supine</option>
+              <option value="upright">5 ml liquid, upright</option>
+              <option value="solid">Solid bolus</option>
+            </select>
+          </label>
+          <button id="preset" type="button">Restore scenario defaults</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart">
+      <h2>Closing pressure vs gradient</h2>
+      <p>Stacked areas are the barrier terms; the line is P<sub>gast</sub> − P<sub>oes</sub>. Shaded columns are where the gradient wins and reflux flows. Drag to scrub.</p>
+      <div class="legend">
+        <span><i style="background:var(--c-les)"></i>LES</span>
+        <span><i style="background:var(--c-crus)"></i>Crus × overlap</span>
+        <span><i style="background:var(--c-abd)"></i>Abdominal segment</span>
+        <span><i style="background:var(--c-flap)"></i>Flap valve</span>
+        <span><i class="line" style="background:var(--c-grad)"></i>Gradient</span>
+        <span><i style="background:var(--c-reflux)"></i>Reflux</span>
+      </div>
+      <canvas id="bchart" height="200"></canvas>
+    </div>
+    <div class="chart">
+      <h2>Synthetic HRM topography from the model</h2>
+      <p>Pressure from pharynx to stomach over time, with the 30 mmHg isobaric contour in white. Look for UOS relaxation, the proximal transition-zone gap, the CDP, the EGJ band with inspiratory crural spikes, orad EGJ movement with shortening, and the after-contraction.</p>
+      <canvas id="hrm" height="300"></canvas>
+    </div>
+  </div>
+
+  <footer>Schematic, lumped-parameter model built from the EGJ engineering specification. Pressures, timings and displacements are approximate adult values chosen for teaching and animation, not a validated physiological simulation.</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+const DT = 0.02;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ---------- Scenarios ----------
+const BASE = { les: 22, crus: 15, hernia: 0, vigour: 1, bolus: 'supine' };
+const SCEN = {
+  rest: { name: 'Rest: the idle loop', dur: 14, swallows: [], tlesr: null, strains: [], post: false, acid: false,
+    intro: 'Idle loop. LES tone holds the EGJ shut and the crus adds a squeeze on every inspiration, exactly when thoracic pressure falls and the gradient widens. The barrier stays above the gradient through every breath.' },
+  swallow: { name: 'Single swallow', dur: 16, swallows: [1], tlesr: null, strains: [], post: false, acid: false,
+    intro: 'Resting EGJ. A swallow is about to start; watch the LES open before the bolus arrives.' },
+  rapid: { name: 'Multiple rapid swallows', dur: 20, swallows: [1, 3.5, 6], tlesr: null, strains: [], post: false, acid: false,
+    intro: 'Three swallows 2.5 s apart. Each new swallow re-inhibits the body, so the LES stays open and only the last swallow produces a wave.' },
+  tlesr: { name: 'TLESR after a meal: belch, reflux, clearance', dur: 34, swallows: [27], tlesr: { t: 3, dur: 15 }, strains: [], post: true, acid: true,
+    intro: 'After a meal. The fundus is distended, there is gas under the fundic dome and an acid pocket floats on the meal next to the cardia.' },
+  iem: { name: 'TLESR with weak peristalsis (failed clearance)', dur: 34, swallows: [26], tlesr: { t: 3, dur: 15 }, strains: [], post: true, acid: true,
+    preset: { vigour: 0.3 },
+    intro: 'Same TLESR, but peristaltic vigour is 0.3. Watch the secondary wave fail, leaving refluxate in the oesophagus.' },
+  strain: { name: 'Cough and strain: normal EGJ', dur: 16, swallows: [], tlesr: null, post: false, acid: false,
+    strains: [{ t: 3, dur: 0.45, amp: 80, kind: 'cough' }, { t: 5, dur: 0.45, amp: 80, kind: 'cough' }, { t: 8, dur: 3, amp: 40, kind: 'strain' }, { t: 13, dur: 0.45, amp: 90, kind: 'cough' }],
+    intro: 'Normal EGJ under coughs and a sustained strain. The abdominal LES segment and the crus scale with abdominal pressure, so the barrier tracks the gradient.' },
+  hypo: { name: 'Hypotensive LES with small hernia', dur: 30, swallows: [], tlesr: null, strains: [], post: false, acid: true,
+    preset: { les: 5, hernia: 1.5 },
+    intro: 'Basal LES tone 5 mmHg with 1.5 cm LES–crus separation. No TLESR is needed: the gradient beats the barrier repeatedly.' },
+  hernia: { name: 'Type III hiatus hernia under cough', dur: 26, swallows: [20], tlesr: null, post: false, acid: true,
+    strains: [{ t: 4, dur: 0.45, amp: 80, kind: 'cough' }, { t: 9, dur: 0.45, amp: 80, kind: 'cough' }, { t: 13, dur: 3, amp: 40, kind: 'strain' }],
+    preset: { les: 20, hernia: 3.5 },
+    intro: 'LES 3.5 cm above the crus. The crus now squeezes a hernia sac holding the acid pocket; the LES sits in the thorax with no abdominal support and no flap.' }
+};
+
+const TEXT = {
+  swallow: 'Pharyngeal swallow. Breathing pauses briefly (swallow apnoea) and deglutitive inhibition runs down the whole oesophagus and LES.',
+  relax: 'Within a second of the swallow starting, the swallow reflex relaxes the LES via vagal inhibitory neurons (nitric oxide, VIP), before any bolus arrives. The longitudinal muscle pulls the EGJ up, the phrenoesophageal ligament stretches and the angle of His effaces. The fundus relaxes receptively.',
+  wave: 'The peristaltic wave enters the distal oesophagus with the bolus ahead of it. Intrabolus pressure exceeds gastric pressure, so flow is downward only.',
+  cdp: 'Contractile deceleration point: the wave slows sharply above the LES. The remaining bolus sits in the phrenic ampulla and empties as the ligament recoils and tone returns.',
+  after: 'The wave merges into the LES: after-contraction above basal tone. The EGJ drops back to the hiatus and the flap valve reforms.',
+  dead: 'The weak wave died before reaching the LES (ineffective motility). Bolus or refluxate is left behind, and the LES closes beneath it.',
+  tlesr: 'TLESR from fundic stretch, with no swallow. LES and crus switch off together: the crus loses its inspiratory squeeze while the costal diaphragm keeps breathing. The oesophagus shortens and lifts the EGJ above the hiatus.',
+  vent: 'Common cavity. Gas vents first: a belch. Gas distension makes the UOS relax and let it out.',
+  liquid: 'Liquid refluxate rises from the acid pocket. Oesophageal pressure climbs towards gastric pressure as the column fills; the UOS tightens to protect the airway.',
+  secondary: 'The TLESR ends with a secondary peristaltic wave that strips refluxate back into the stomach.',
+  distension: 'Refluxate distends the oesophagus and triggers a secondary peristaltic wave, with no swallow needed.',
+  cleared: 'Volume cleared. Acid still coats the mucosa (yellow tint) until swallowed saliva neutralises it.',
+  strainHeld: 'Abdominal pressure spikes. The same pressure squeezes the intra-abdominal LES segment and the crus contracts reflexly, so the barrier rises with the gradient and nothing refluxes.',
+  strainReflux: 'The abdominal pressure spike beats the barrier. With the LES above the hiatus there is no abdominal support and no crural overlap, so contents are forced up.',
+  free: 'Free reflux: LES tone is so low, and the geometry so poor, that the gradient exceeds the barrier without any TLESR.',
+  rest: 'Back to the resting state.'
+};
+
+function strainVal(strains, t) {
+  let v = 0;
+  for (const s of strains) {
+    const u = t - s.t;
+    if (u < 0 || u > s.dur) continue;
+    if (s.kind === 'cough') v += s.amp * Math.sin(Math.PI * u / s.dur);
+    else { const r = 0.4; const f = u < r ? u / r : (u > s.dur - r ? (s.dur - u) / r : 1); v += s.amp * f; }
+  }
+  return v;
+}
+
+// ---------- Simulation ----------
+const ZTOP = 15.5, ZS_TOP = 24, ZS_BOT = -5, DZ = 0.2, Z_UOS = 21;
+const NZ = Math.round((ZS_TOP - ZS_BOT) / DZ) + 1;
+
+function simulate(sc, P) {
+  const N = Math.round(sc.dur / DT) + 1;
+  const snaps = new Array(N);
+  const events = [{ t: 0, key: 'start' }];
+  const log = (t, key) => events.push({ t, key });
+  const s = P.hernia, vig = P.vigour, solid = P.bolus === 'solid', upright = P.bolus === 'upright';
+  const failMax = vig >= 0.5 ? 1e9 : (vig / 0.5) * 9;
+  let E = 0, h = 0, gas = sc.post ? 1 : 0, residue = 0;
+  let hold = false, holdStart = 0, afterT = -99, restLogged = true, crusF = 1, tlF = 1;
+  const tl = { active: false, started: false, t0: sc.tlesr ? sc.tlesr.t : 1e9, end: sc.tlesr ? sc.tlesr.t + sc.tlesr.dur : 1e9, waveSent: false };
+  let waves = [], past = [], lastWaveEnd = -99, pendSec = -1;
+  const mkArr = () => new Float32Array(NZ).fill(NaN);
+  let venting = false, refluxing = false, straining = false, recept = 0;
+  const sw = sc.swallows.map(ts => ({ ts, logged: false, holdOn: false, waveMade: false, wave: null, deathZ: null, done: false }));
+  const mkSec = (z) => ({ z: Math.min(ZTOP, z), type: 'secondary', cdp: false, trav: 0, amp: 65 * vig, speed: 3.5, max: failMax, col: false, arr: mkArr() });
+
+  for (let i = 0; i < N; i++) {
+    const t = i * DT;
+    const ph = (t % 4.5) / 4.5;
+    let insp = ph < 0.42 ? Math.sin(Math.PI * ph / 0.42) : 0;
+    let latest = null;
+    for (const r of sw) if (r.ts <= t) latest = r;
+    const tau = latest ? t - latest.ts : 99;
+    if (tau < 1.2) insp = 0;
+    const hz = -0.3 * insp;
+
+    // swallow programme
+    for (const r of sw) {
+      const u = t - r.ts;
+      if (u >= 0 && !r.logged) {
+        r.logged = true; log(t, 'swallow');
+        // every swallow fires the proximal (striated) contraction from the UOS, even when distal peristalsis is then inhibited
+        const pw = { arr: mkArr(), amp: 90 * vig * (solid ? 1.3 : 1), type: 'primary', endT: t + 4 };
+        for (let k = 0; k < NZ; k++) { const z = ZS_TOP - k * DZ; if (z <= Z_UOS && z > ZTOP) pw.arr[k] = r.ts + 0.6 + (Z_UOS - z) / 3.9; }
+        past.push(pw);
+      }
+      if (u >= 0.6 && !r.holdOn) {
+        r.holdOn = true;
+        if (!hold) { hold = true; holdStart = t; log(t, 'relax'); }
+        residue = Math.max(0, residue - 0.5);
+      }
+      if (u >= 2.0 && !r.waveMade) {
+        r.waveMade = true;
+        const nxt = sw.find(q => q.ts > r.ts);
+        if (!(nxt && nxt.ts < r.ts + 6)) {
+          const w = { z: ZTOP, type: 'primary', sw: r, cdp: false, trav: 0, amp: 90 * vig * (solid ? 1.3 : 1), speed: solid ? 3 : 4, max: failMax, col: false };
+          w.arr = mkArr();
+          waves.push(w); r.wave = w; log(t, 'wave');
+        }
+      }
+    }
+    // TLESR programme
+    if (t >= tl.t0 && !tl.started) { tl.started = true; tl.active = true; log(t, 'tlesr'); }
+    if (tl.active && t >= tl.end && !tl.waveSent && waves.length === 0) {
+      tl.waveSent = true; waves.push(mkSec(-2 + s + E + hz + h + 1.5)); log(t, 'secondary');
+    }
+
+    tlF += ((tl.active ? 0 : 1) - tlF) * Math.min(1, DT / 0.25);
+    crusF += ((tl.active ? 0 : (hold ? 0.85 : 1)) - crusF) * Math.min(1, DT / 0.2);
+    const target = tl.active ? 3.0 : (hold ? 2.2 : 0);
+    E += (target - E) * Math.min(1, DT / 0.7);
+    const lesBot = -2 + s + E + hz, lesTop = 1.5 + s + E + hz;
+
+    // waves
+    for (const w of waves) {
+      if (!w.cdp && w.z <= lesTop + 2.5) { w.cdp = true; if (w.type === 'primary') log(t, 'cdp'); }
+      const v = w.cdp ? 1.1 : w.speed;
+      const zOld = w.z;
+      w.z -= v * DT; w.trav += v * DT;
+      if (!w.dead) {
+        const k0 = Math.max(0, Math.ceil((ZS_TOP - zOld) / DZ)), k1 = Math.min(NZ - 1, Math.floor((ZS_TOP - w.z) / DZ));
+        for (let k = k0; k <= k1; k++) if (Number.isNaN(w.arr[k])) w.arr[k] = t;
+      }
+      if (h > 0.3 && w.z < lesBot + h + 0.6) w.col = true;
+      if (w.trav > w.max) w.dead = true;
+      else {
+        h = Math.min(h, Math.max(0, w.z - lesBot - 0.4));
+        if (w.z <= lesTop) w.done = true;
+      }
+    }
+    waves = waves.filter(w => {
+      if (!(w.done || w.dead)) return true;
+      lastWaveEnd = t; w.endT = t; past.push(w);
+      if (w.done) { afterT = t; restLogged = false; if (w.col) { residue = 1; log(t, 'cleared'); } h = 0; }
+      if (w.dead) log(t, 'dead');
+      if (w.type === 'primary') {
+        if (w.done) w.sw.closeT = t;
+        if (w.dead) w.sw.deathZ = w.z;
+        w.sw.done = true;
+        const others = waves.some(q => q !== w && q.type === 'primary' && !q.done && !q.dead);
+        if (!others) hold = false;
+        if (w.done && !w.col) log(t, 'after');
+      }
+      if (tl.active) { tl.active = false; if (w.dead) { afterT = t; restLogged = false; } }
+      return false;
+    });
+
+    // distension-triggered secondary peristalsis
+    if (!tl.active && !hold && h > 3 && waves.length === 0 && pendSec < 0 && t - lastWaveEnd > 3) pendSec = t + 0.8;
+    if (pendSec > 0 && t >= pendSec) { pendSec = -1; waves.push(mkSec(lesBot + h + 1.5)); log(t, 'distension'); }
+
+    // pressures
+    const sv = strainVal(sc.strains, t);
+    if (sv > 10 && !straining) { straining = true; log(t, 'strainHeld'); }
+    if (sv < 5) straining = false;
+    const Pabd = 5 + 3 * insp + sv;
+    recept += ((hold ? 2 : 0) - recept) * Math.min(1, DT / 0.6);
+    const Pg = Pabd + 2 + (sc.post ? 3 : 0) - recept;
+    const Pth = -3 - 9 * insp;
+    let Poes = Pth + 1.2 * h;
+    if (hold) Poes = Math.max(Poes, 12);
+    const holdF = hold ? Math.max(0.08, 1 - (t - holdStart) / 1.2) : 1;
+    const a = t - afterT;
+    const ease = x => x * x * (3 - 2 * x);
+    const afterF = a < 0 ? 1 : a < 1.5 ? lerp(0.08, 1.6, ease(a / 1.5)) : a < 7.5 ? 1.6 - 0.6 * (a - 1.5) / 6 : 1;
+    // closing front: the contraction continues down through the LES after the wave arrives, squeezing out what is left
+    const closeFront = (a >= 0 && a < 1.5) ? lesTop - (lesTop - lesBot) * ease(a / 1.5) : -99;
+    if (!restLogged && a >= 7 && !hold && !tl.active) { restLogged = true; log(t, 'rest'); }
+    const lesF = (hold ? holdF : afterF) * tlF;
+    const lesP = closeFront > -50 ? Math.max(P.les * lesF, P.les * 1.4 * ease(Math.min(1, a / 0.35))) : P.les * lesF;
+    const overlap = clamp(1 - s / 2.5, 0, 1);
+    const crusRaw = (P.crus * insp + 0.6 * sv * (P.crus / 15)) * crusF;
+    const crusP = crusRaw * overlap;
+    const kabd = Math.min(1, clamp((hz - lesBot) / 3.5, 0, 1) / 0.5714);
+    const abdP = kabd * (Pabd - 5);
+    const geomA = clamp(1 - (s + E) / 2, 0, 1);
+    const flap = geomA * (0.3 + 0.7 * Math.min(1, lesF));
+    const his = 140 - 80 * geomA * (0.4 + 0.6 * Math.min(1, lesF)) - (sc.post ? 10 : 0) * geomA;
+    const flapP = 8 * flap * clamp((Pg - 3) / 7, 0, 1.5);
+    const barrier = lesP + crusP + abdP + flapP;
+    const grad = Pg - Poes, ex = grad - barrier;
+
+    let ventNow = false;
+    if (ex > 0) {
+      if (gas > 0.05) { gas -= 0.6 * DT; ventNow = true; h += 0.01 * ex * DT; }
+      else {
+        h += 0.06 * ex * DT;
+        if (!refluxing) { refluxing = true; log(t, tl.active ? 'liquid' : (sv > 10 ? 'strainReflux' : 'free')); }
+      }
+      h = Math.min(h, 13);
+    } else {
+      refluxing = false;
+      if (barrier < 4) h = Math.max(0, h - 0.4 * DT);
+      if (h > 0 && h < 1) h = Math.max(0, h - 0.15 * DT);
+    }
+    if (ventNow && !venting) log(t, 'vent');
+    venting = ventNow;
+    if (h > 0.5) residue = 1; else residue = Math.max(0, residue - 0.02 * DT);
+
+    // bolus segments
+    const segs = [];
+    for (const r of sw) {
+      const u = t - r.ts;
+      r.enteringNow = false;
+      const closed = r.done && r.deathZ == null && t - (r.closeT ?? -99) >= 1.6;
+      if (closed && r.entryStart == null) { r.entryStart = t; r.entryEnd = t; r.frac = 1; }
+      if (r.entryStart != null && r.entryEnd == null && (closed || u > 14)) { r.entryEnd = t; r.frac = r.deathZ == null ? 1 : (r.frac || 0); }
+      if (u < 1.0 || u > 14) continue;
+      const L = solid ? 2.4 : 3.6, rad = solid ? 0.85 : 0.75, kind = solid ? 'solid' : 'liquid';
+      if (r.done && r.deathZ == null) {
+        const floor2 = lesBot - 0.4;
+        if (closeFront > -50 && t - (r.closeT ?? -99) < 1.6 && closeFront > floor2 + 0.05) {
+          segs.push({ lo: floor2, hi: closeFront, r: rad * 0.85, kind });
+          if (r.entryStart == null) { r.entryStart = t; r.Lent = Math.max(0.5, closeFront - floor2); }
+          r.enteringNow = true;
+          r.frac = clamp(1 - (closeFront - floor2) / (r.Lent || 1), r.frac || 0, 0.98);
+        }
+        continue;
+      }
+      const floor = lesF > 0.4 ? lesTop : lesBot - 0.4;
+      let head, tail;
+      if (upright && !solid && r.deathZ == null) {
+        head = ZTOP - 12 * (u - 1.0); tail = head + L;
+        if (r.wave && lesF < 0.4) segs.push({ lo: lesBot - 0.4, hi: Math.min(ZTOP, r.wave.z), r: 0.2, kind });
+      } else {
+        if (r.deathZ != null) tail = r.deathZ;
+        else if (r.wave) tail = r.wave.z;
+        else if (u < 2.0) tail = ZTOP;
+        else tail = ZTOP - 3 * (u - 2.0);
+        const front = ZTOP - (solid ? 4.6 : 6.5) * (u - 1.0);
+        head = u < 2.0 ? Math.min(tail - 0.3, front) : Math.min(tail - L, front);
+      }
+      const rawHead = head;
+      head = Math.max(head, floor); tail = Math.min(tail, ZTOP);
+      if (floor < lesBot && rawHead < floor - 0.01) {
+        if (tail > head + 0.05) {
+          if (r.entryStart == null) { r.entryStart = t; r.Lent = Math.max(0.5, tail - floor); }
+          r.enteringNow = true;
+          r.frac = clamp(1 - (tail - floor) / r.Lent, r.frac || 0, 1);
+        } else if (r.entryStart != null && r.entryEnd == null) { r.entryEnd = t; r.frac = 1; }
+      }
+      if (tail > head + 0.05) segs.push({ lo: head, hi: tail, r: rad * clamp(Math.sqrt(L / (tail - head)), 0.45, 1), kind });
+    }
+    const drops = [];
+    for (const r of sw) {
+      if (r.entryStart == null) continue;
+      const age = r.entryEnd == null ? 0 : t - r.entryEnd;
+      if (age > 10) continue;
+      drops.push({ frac: r.frac || 0, age, since: t - r.entryStart, streaming: r.enteringNow, kind: solid ? 'solid' : 'liquid' });
+    }
+
+    // state
+    let state;
+    const secAlive = waves.some(w => w.type === 'secondary');
+    if (secAlive) state = 'clear';
+    else if (tl.active) state = (h > 0.3 || venting) ? 'reflux' : 'tlesr';
+    else if (hold) state = 'swallow';
+    else if (ex > 0 || h > 0.3) state = 'reflux';
+    else if (afterT > 0 && t - afterT < 7) state = 'after';
+    else state = 'rest';
+    let uos = 'Closed';
+    if (venting) uos = 'Relaxed: gas venting (belch)';
+    else if (h > 2) uos = 'Contracted harder: liquid in oesophagus';
+    else if (tau < 1) uos = 'Relaxed: swallow';
+    let body = 'Quiescent';
+    if (tl.active && !secAlive) body = 'Inhibited (TLESR)';
+    else if (secAlive) body = 'Secondary peristalsis';
+    else if (waves.length) body = 'Primary peristalsis';
+    else if (hold) body = 'Deglutitive inhibition';
+    else if (pendSec > 0) body = 'Distension sensed';
+
+    // synthetic HRM column: pharynx and UOS at the top, peristalsis as a contraction pulse at each level, LES/crus bands, stomach
+    past = past.filter(w => t - w.endT < 8);
+    const col = new Float32Array(NZ);
+    const lesC = (lesBot + lesTop) / 2;
+    const pulse = d => d < 0 ? 0 : d < 0.9 ? Math.sin(Math.PI / 2 * d / 0.9) ** 2 : Math.exp(-(((d - 0.9) / 1.7) ** 2));
+    const pulseFast = d => d < 0 ? 0 : d < 0.15 ? Math.sin(Math.PI / 2 * d / 0.15) ** 2 : Math.exp(-(((d - 0.15) / 0.3) ** 2));
+    const shape = (z, type) => {
+      // striated proximal segment, a low-amplitude transition zone, then smooth-muscle segments growing distally
+      const distal = lerp(0.6, 1.15, clamp((15 - z) / 11, 0, 1));
+      const sm = clamp((z - 15.8) / 1.6, 0, 1), striated = type === 'primary' ? 0.85 : 0;
+      const base = lerp(distal, striated, sm * sm * (3 - 2 * sm));
+      return base * (1 - 0.85 * Math.exp(-(((z - 15.7) / 1.1) ** 2)));
+    };
+    let Puos = venting ? 6 : (h > 2 ? 95 : 70) + 6 * insp;
+    if (tau < 1.6) Puos = tau < 0.15 ? lerp(70, 2, tau / 0.15) : tau < 0.55 ? 2 : tau < 0.85 ? lerp(2, 150, (tau - 0.55) / 0.3) : lerp(150, 70, (tau - 0.85) / 0.75);
+    const allW = waves.concat(past);
+    const PoesB = -2 - 5 * insp; // intrathoracic baseline; intrabolus pressure is added only where bolus actually is
+    // common cavity: the oesophagus below any clearing wave equalises towards gastric pressure as refluxate fills it
+    const zCav = waves.reduce((mn, w) => Math.min(mn, w.z), 99);
+    for (let k = 0; k < NZ; k++) {
+      const z = ZS_TOP - k * DZ;
+      const wB = 1 / (1 + Math.exp(-(z - lesC) / 0.4));
+      const zCol = lesBot + h;
+      const PoesH = PoesB + (z < zCav ? 1.2 * h * (z <= zCol ? 1 : Math.exp(-(((z - zCol) / 4) ** 2))) : 0);
+      let p = z > Z_UOS + 0.8 ? 0 : PoesH * wB + Pg * (1 - wB);
+      p += Puos * Math.exp(-(((z - Z_UOS) / 0.6) ** 2));
+      if (z > Z_UOS + 0.4 && tau < 3) p += 170 * pulseFast(tau - (0.12 + (ZS_TOP - z) / 14));
+      p += lesP * Math.exp(-(((z - lesC) / 1.1) ** 2));
+      p += crusRaw * Math.exp(-(((z - hz) / 0.7) ** 2));
+      const dur = lerp(1, 0.55, clamp((z - 15.8) / 1.6, 0, 1));
+      for (const w of allW) { const ta = w.arr[k]; if (!Number.isNaN(ta)) p += 1.15 * w.amp * shape(z, w.type) * pulse((t - ta) / dur); }
+      if (closeFront > -50) p += 40 * vig * (a < 1.0 ? 1 : 1 - (a - 1.0) / 0.5) * Math.exp(-(((z - closeFront) / 1.0) ** 2));
+      for (const g of segs) if (z >= g.lo && z <= g.hi) { const tp = Math.min(1, (z - g.lo) / 0.8, (g.hi - z) / 0.8); p = Math.max(p, p + (9 - p) * tp); }
+      if (s > 0.8 && z < lesBot && z > hz) p = Math.max(p, Pg);
+      col[k] = p;
+    }
+
+    snaps[i] = {
+      t, insp, hz, E, s, lesBot, lesTop, lesF, lesP, crusRaw, crusP, abdP, flapP, flap, kabd, overlap,
+      barrier, grad, ex, his, Pg, Poes, Pth, Pabd, h, gas: Math.max(0, gas), venting, residue,
+      waves: waves.map(w => ({ z: w.z, amp: w.amp, type: w.type })).concat(closeFront > -50 ? [{ z: closeFront, amp: 70 * vig, type: 'close' }] : []), closeFront, lesBasal: P.les, segs, drops, state, uos, body,
+      sacAcid: sc.acid && s >= 1.5, acid: sc.acid, post: sc.post, col
+    };
+  }
+  events.sort((x, y) => x.t - y.t);
+  return { snaps, events, dur: sc.dur };
+}
+
+// ---------- Theme ----------
+let theme = {};
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  theme = {
+    thorax: g('--thorax'), abdomen: g('--abdomen'), ink: g('--ink'), muted: g('--muted'), line: g('--line'),
+    les: g('--c-les'), crus: g('--c-crus'), abd: g('--c-abd'), flap: g('--c-flap'), grad: g('--c-grad'),
+    reflux: g('--c-reflux'), panel: g('--panel'), accent: g('--accent')
+  };
+}
+readTheme();
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+const onTheme = () => { readTheme(); rebuildCharts(); };
+if (mq.addEventListener) mq.addEventListener('change', onTheme);
+new MutationObserver(onTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- Colours ----------
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const mix = (a, b, t) => { const A = hex(a), B = hex(b); return `rgb(${Math.round(lerp(A[0], B[0], t))},${Math.round(lerp(A[1], B[1], t))},${Math.round(lerp(A[2], B[2], t))})`; };
+const COL = {
+  musRelax: '#E6B1A8', musOn: '#A2303B', lesRelax: '#DCC3E4', lesOn: '#6A2A7E', crusRelax: '#D9A79D', crusOn: '#7A2222',
+  costalRelax: '#CF9C93', costalOn: '#93353A', mucosa: '#F3CEC8', gastricMuc: '#EAA9A0', stomachWall: '#D4877E',
+  residue: '#DCD47A', liquid: '#4C8FD0', solid: '#C79F66', acid: '#BCCB3F', gas: '#EEF3F6', chyme: '#D9C3A0', lig: '#B9B2A2', ligHot: '#E0952F'
+};
+
+// ---------- Anatomy drawing ----------
+const AW = 520, AH = 700, PX = 32, CX = 218, OY = 14, ZV = 8.6;
+const Y = z => OY + (ZV - z) * PX;
+const X = x => CX + x * PX;
+const PT = (x, z) => [X(x), Y(z)];
+// centreline: gentle curve above, then the abdominal segment runs obliquely to the patient's left below the hiatus
+const xcOf = (z, hz = 0) => {
+  const d = z - hz;
+  const below = d < 0 ? 0.5 * (d > -0.6 ? d * d / 1.2 : -d - 0.3) : 0;
+  return -0.45 * Math.pow(clamp((z - 2) / 6.6, 0, 1), 1.4) + below;
+};
+const anat = document.getElementById('anat');
+const actx = anat.getContext('2d');
+let dpr = Math.max(1, window.devicePixelRatio || 1);
+
+function sizeAnat() {
+  const w = anat.clientWidth || AW;
+  anat.width = Math.round(w * dpr);
+  anat.height = Math.round(w * AH / AW * dpr);
+}
+
+function profile(S) {
+  const out = [];
+  const s = S.s, Et = S.E + S.hz, Lt = 1.5 + s, kk = Et / (15.8 - Lt);
+  const lesAnB = -2 + s, lesAnT = 1.5 + s;
+  const nS = Math.max(2, Math.ceil((ZV - S.lesBot) / 0.07));
+  for (let iS = 0; iS <= nS; iS++) {
+    const z = ZV - (ZV - S.lesBot) * iS / nS;
+    let r = 0.05, content = null;
+    const a = z <= S.lesTop ? z - Et : (z - 15.8 * kk) / (1 - kk);
+    const inL = a >= lesAnB && a <= lesAnT;
+    const bump = inL ? Math.pow(Math.max(0, Math.sin(Math.PI * (a - lesAnB) / 3.5)), 0.7) : 0;
+    let w = 0.28 + 0.15 * bump + (z > S.lesTop ? 0.3 * Math.max(0, kk) : 0);
+    const lp = (inL && S.closeFront > -50) ? (z > S.closeFront ? S.lesBasal * 1.4 : S.lesBasal * 0.08) : S.lesP;
+    let act = inL ? clamp(lp / 32, 0, 1) * bump : 0.06;
+    for (const g of S.segs) if (z >= g.lo && z <= g.hi) {
+      const tp = Math.min(1, (z - g.lo) / 0.35, (g.hi - z) / 0.35);
+      r = Math.max(r, g.r * (0.35 + 0.65 * tp)); content = g.kind;
+    }
+    if (S.h > 0.05 && z <= S.lesBot + S.h) { r = Math.max(r, 0.42); if (!content) content = 'acid'; }
+    if (S.venting && z <= S.lesBot + 7) { r = Math.max(r, 0.36); if (!content) content = 'gas'; }
+    if (bump > 0) r *= 1 - clamp(lp * bump / 14, 0, 0.93);
+    const d = z - S.hz;
+    if (Math.abs(d) < 0.95) r *= 1 - clamp(S.crusRaw / 30, 0, 0.7) * Math.cos(d / 0.95 * Math.PI / 2);
+    for (const wv of S.waves) {
+      const g = Math.exp(-(((z - wv.z) / 0.8) ** 2));
+      r *= 1 - 0.97 * g; w += 0.28 * g; act = Math.max(act, g * clamp(wv.amp / 80, 0.3, 1));
+    }
+    // the relaxed LES is distended passively by the bolus, a little less than the body
+    if (bump > 0 && r > 0.6) r = lerp(r, 0.6, bump);
+    // muscle volume is conserved: as the lumen stretches, the wall thins (no ballooning outer contour)
+    const r0 = 0.05, wRest = w + 0.08 * bump;
+    const thin = (ww) => Math.sqrt(r * r + ww * (ww + 2 * r0)) - r;
+    w = thin(w);
+    const wRthin = thin(wRest);
+    out.push({ z, r, w, wR: wRthin, act, lp, content, bump, a: a - s, xc: xcOf(z, S.hz) });
+  }
+  return out;
+}
+function outerAt(prof, z) {
+  let best = prof[0], bd = 1e9;
+  for (const p of prof) { const d = Math.abs(p.z - z); if (d < bd) { bd = d; best = p; } }
+  return best.r + best.w;
+}
+
+// one continuous outline: cardia -> fundus -> greater curve -> antrum -> pylorus -> duodenal bulb -> D2 -> back up the lesser curve
+// lesser curve between the stomach body and the cardia: a smooth sweep whose tangent meets the oesophageal wall
+function lesserCtrl(g) {
+  const m = g.m, L = g.lift;
+  // tangent at the cardia follows the oesophageal axis, so the wall sweeps on without a kink
+  const k = lerp(0.6, 1.0, L);
+  return { c1: [lerp(0.6, 0.45, L), lerp(-2.5, -2.1, L) + m], c2: [-g.ocL + g.slope * k, g.zc - k] };
+}
+function gastroPath(ctx, g, open) {
+  const m = g.m, bul = 0.25 + 0.3 * g.s, mid = (g.zc + m) / 2;
+  ctx.beginPath();
+  ctx.moveTo(...PT(g.ocR, g.zc));
+  if (g.sac) {
+    ctx.bezierCurveTo(...PT(g.ocR + bul, g.zc - 0.2), ...PT(g.pw + bul, mid), ...PT(g.pw, m + 0.1));
+    ctx.bezierCurveTo(...PT(g.pw + 0.4, m - 0.6), ...PT(2.0, m + 0.4), ...PT(3.0, 0.5 + m));
+  } else {
+    const f = g.flap, L = g.lift, cR = g.ocR, zc = g.zc;
+    // rest: wall climbs steeply beside the oesophagus (acute angle of His); lifted: smooth cone opening down into the fundus
+    const a1 = [lerp(cR + lerp(0.6, 0.1, f), cR + 0.15, L), lerp(zc + lerp(-0.2, 0.5, f), zc - 0.7, L)];
+    const a2 = [lerp(cR + lerp(0.7, 0.3, f), cR + 0.6, L), lerp(zc + lerp(0.6, 1.2, f), m - 0.9, L)];
+    const p1 = [lerp(cR + 0.8, 1.9, L), lerp(Math.min(zc + 1.9, m + 0.1), m - 0.5, L)];
+    const b1 = [lerp(cR + 1.0, 2.4, L), lerp(Math.min(zc + 2.3, m + 0.45), m - 0.2, L)];
+    ctx.bezierCurveTo(...PT(a1[0], a1[1]), ...PT(a2[0], a2[1]), ...PT(p1[0], p1[1]));
+    ctx.bezierCurveTo(...PT(b1[0], b1[1]), ...PT(2.5, 0.5 + m), ...PT(3.0, 0.5 + m));
+  }
+  ctx.bezierCurveTo(...PT(4.9, 0.6 + m), ...PT(6.9, -1.0 + m), ...PT(6.8, -3.8 + m));
+  ctx.bezierCurveTo(...PT(6.7, -7.2 + m), ...PT(5.6, -10.3 + m), ...PT(2.8, -11.0 + m));
+  ctx.bezierCurveTo(...PT(0.8, -11.5 + m), ...PT(-0.9, -10.4 + m), ...PT(-1.9, -9.35 + m));
+  ctx.lineTo(...PT(-2.3, -9.4 + m));
+  ctx.bezierCurveTo(...PT(-2.9, -9.7 + m), ...PT(-3.6, -9.6 + m), ...PT(-3.7, -10.3 + m));
+  ctx.lineTo(...PT(-3.8, -14.6 + m)); ctx.lineTo(...PT(-5.1, -14.6 + m));
+  ctx.lineTo(...PT(-5.1, -10.0 + m));
+  ctx.bezierCurveTo(...PT(-5.1, -8.4 + m), ...PT(-4.3, -7.7 + m), ...PT(-3.3, -7.9 + m));
+  ctx.bezierCurveTo(...PT(-2.7, -8.0 + m), ...PT(-2.4, -8.3 + m), ...PT(-2.2, -8.45 + m));
+  ctx.lineTo(...PT(-1.9, -8.45 + m));
+  ctx.bezierCurveTo(...PT(-1.0, -8.4 + m), ...PT(0.0, -8.1 + m), ...PT(0.3, -7.3 + m));
+  ctx.bezierCurveTo(...PT(0.75, -6.4 + m), ...PT(0.95, -4.4 + m), ...PT(0.75, -3.1 + m));
+  if (g.sac) {
+    ctx.bezierCurveTo(...PT(-1.0, -2.0 + m), ...PT(-g.pw - 0.2, m - 0.5), ...PT(-g.pw, m + 0.1));
+    ctx.bezierCurveTo(...PT(-g.pw - bul, mid), ...PT(-g.ocL - bul, g.zc - 0.2), ...PT(-g.ocL, g.zc));
+  } else {
+    const c = lesserCtrl(g);
+    ctx.bezierCurveTo(...PT(c.c1[0], c.c1[1]), ...PT(c.c2[0], c.c2[1]), ...PT(-g.ocL, g.zc));
+  }
+  if (!open) ctx.closePath();
+}
+
+function spring(ctx, x1, y1, x2, y2, coils, amp) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  ctx.beginPath(); ctx.moveTo(x1, y1);
+  const n = coils * 2;
+  for (let i = 1; i < n; i++) {
+    const f = i / n, sgn = i % 2 ? 1 : -1;
+    ctx.lineTo(x1 + dx * f + nx * amp * sgn, y1 + dy * f + ny * amp * sgn);
+  }
+  ctx.lineTo(x2, y2); ctx.stroke();
+}
+
+function label(ctx, text, tx, ty, px, py, halo) {
+  const w = ctx.measureText(text).width;
+  const sx = tx + w + 4 < px ? tx + w + 4 : tx - 4;
+  ctx.strokeStyle = theme.muted; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.85;
+  ctx.beginPath(); ctx.moveTo(sx, ty - 4); ctx.lineTo(px, py); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+  if (halo) { ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = halo; ctx.strokeText(text, tx, ty); }
+  ctx.fillStyle = theme.ink; ctx.fillText(text, tx, ty);
+}
+function tag(ctx, text, tx, ty, halo) {
+  ctx.textAlign = 'left';
+  if (halo) { ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.strokeStyle = halo; ctx.strokeText(text, tx, ty); }
+  ctx.fillStyle = theme.muted; ctx.fillText(text, tx, ty);
+}
+
+function qpt(d, t) {
+  return [(1 - t) ** 2 * d.p0[0] + 2 * (1 - t) * t * d.c[0] + t * t * d.p2[0], (1 - t) ** 2 * d.p0[1] + 2 * (1 - t) * t * d.c[1] + t * t * d.p2[1]];
+}
+
+let showLabels = true;
+function drawAnat(S) {
+  const ctx = actx, k = anat.width / AW;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  ctx.clearRect(0, 0, AW, AH);
+  const hz = S.hz, m = hz, insp = S.insp;
+  const prof = profile(S), last = prof[prof.length - 1];
+  const zc = S.lesBot, xC = xcOf(zc, hz), ocL = last.r + last.w - xC, ocR = last.r + last.wR + xC;
+  const xcf = z => xcOf(z, hz);
+  const axTilt = Math.atan2(xcf(zc + 0.3) - xcf(zc + 1.3), 1.0);
+  const sac = zc > m + 0.2 && S.s > 0.8;
+  const lift = clamp((zc - (-2 + m)) / 2.5, 0, 1), liftE = lift * lift * (3 - 2 * lift);
+  const crusAct = clamp(S.crusRaw / 25, 0, 1);
+  const pw = (0.85 + 0.25 * S.s) * (1 - 0.25 * crusAct);
+  const ci = sac ? pw : outerAt(prof, hz);
+  const cw = 0.6 + 0.25 * crusAct, hw = ci + cw;
+  const crC = mix(COL.crusRelax, COL.crusOn, crusAct);
+  const g = { m, zc, ocL, ocR, sac, pw, s: S.s, flap: S.flap, lift: liftE, slope: (xcOf(zc - 0.5, hz) - xcOf(zc, hz)) / 0.5 };
+  const level = S.post ? -3.6 : -4.6;
+
+  // background: thorax above, abdomen below the diaphragm
+  ctx.fillStyle = theme.thorax; ctx.fillRect(0, 0, AW, AH);
+  const dL = { p0: [-hw, hz + 0.55], c: [-3.9, 4.4 - 0.6 * insp], p2: [-CX / PX - 0.2, 2.8 - 0.6 * insp] };
+  const dR = { p0: [hw, hz + 0.55], c: [5.2, 4.0 - 0.6 * insp], p2: [(AW - CX) / PX + 0.2, 2.2 - 0.6 * insp] };
+  ctx.fillStyle = theme.abdomen; ctx.beginPath();
+  for (let i = 24; i >= 0; i--) { const [x, z] = qpt(dL, i / 24); i === 24 ? ctx.moveTo(X(x), Y(z)) : ctx.lineTo(X(x), Y(z)); }
+  for (let i = 0; i <= 24; i++) { const [x, z] = qpt(dR, i / 24); ctx.lineTo(X(x), Y(z)); }
+  ctx.lineTo(AW, AH); ctx.lineTo(0, AH); ctx.closePath(); ctx.fill();
+
+  // context: liver edge and lumbar spine, faint
+  const lv = -0.5 * insp;
+  ctx.fillStyle = 'rgba(150,72,60,0.12)'; ctx.beginPath();
+  ctx.moveTo(...PT(-8.4, 2.0 + lv)); ctx.bezierCurveTo(...PT(-5.5, 2.6 + lv), ...PT(-3.2, 2.2 + lv), ...PT(-2.3, 1.0 + lv));
+  ctx.bezierCurveTo(...PT(-1.8, -0.8 + lv), ...PT(-2.4, -3.8 + lv), ...PT(-3.4, -5.6 + lv));
+  ctx.bezierCurveTo(...PT(-5.0, -6.6 + lv), ...PT(-7.0, -6.8 + lv), ...PT(-8.4, -6.6 + lv)); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(170,160,140,0.22)';
+  for (let z = -1.0; z > -15; z -= 2.1) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(X(-2.9), Y(z), 2.1 * PX, 1.75 * PX, 6); else ctx.rect(X(-2.9), Y(z), 2.1 * PX, 1.75 * PX);
+    ctx.fill();
+  }
+
+  // crural pillars running down to the lumbar spine (left one mostly hidden behind the stomach)
+  // each crural pillar starts as wide as its hiatal lobe and tapers smoothly to its spinal attachment
+  const pillar = (xa, xb, xc1, xc2, zb) => {
+    // xa/xb: the two edges at the hiatus; xc1/xc2: the matching edges at the spine (same left-to-right order)
+    const zt = hz + 0.85;
+    ctx.fillStyle = crC; ctx.globalAlpha = 0.92; ctx.beginPath();
+    ctx.moveTo(...PT(xa, zt)); ctx.lineTo(...PT(xb, zt));
+    ctx.bezierCurveTo(...PT(xb, hz - 1.6), ...PT(xc2 + 0.05, zb + 2.6), ...PT(xc2, zb));
+    ctx.lineTo(...PT(xc1, zb - 0.5));
+    ctx.bezierCurveTo(...PT(xc1 - 0.05, zb + 2.6), ...PT(xa, hz - 1.6), ...PT(xa, zt));
+    ctx.fill(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
+    for (const f of [0.33, 0.66]) {
+      const x0 = lerp(xa, xb, f), x1 = lerp(xc1, xc2, f);
+      ctx.beginPath(); ctx.moveTo(...PT(x0, zt - 0.1));
+      ctx.bezierCurveTo(...PT(x0, hz - 1.6), ...PT(x1 + 0.05, zb + 2.6), ...PT(x1, zb - 0.25));
+      ctx.stroke();
+    }
+  };
+  pillar(-hw - 0.08, -ci + 0.02, -2.4, -1.3, -10.2 + m);
+  pillar(ci - 0.02, hw + 0.08, -1.15, -0.35, -8.8 + m);
+
+  // stomach and duodenum
+  gastroPath(ctx, g, false);
+  const rg = ctx.createRadialGradient(X(3), Y(-5 + m), 10, X(3), Y(-5 + m), 9 * PX);
+  rg.addColorStop(0, '#F2C0B7'); rg.addColorStop(1, '#E29C92');
+  ctx.fillStyle = rg; ctx.fill();
+  ctx.save(); gastroPath(ctx, g, false); ctx.clip();
+  if (S.post || S.acid) {
+    ctx.fillStyle = 'rgba(214,190,150,0.94)'; ctx.fillRect(0, Y(level + m), AW, AH);
+    if (S.acid && !S.sacAcid) { ctx.fillStyle = COL.acid; ctx.fillRect(0, Y(level + m + 0.8), AW, 0.8 * PX); }
+  }
+  if (S.sacAcid) { ctx.fillStyle = COL.acid; ctx.fillRect(X(-pw - 1), Y(zc), (2 * pw + 1.6) * PX, Y(m - 0.6) - Y(zc)); }
+  if (S.gas > 0.03) {
+    ctx.fillStyle = COL.gas; ctx.strokeStyle = '#A9B8C2'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(X(3.4), Y(-0.3 + m), 1.5 * PX * Math.sqrt(S.gas), 0.7 * PX * Math.sqrt(S.gas), -0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  if (S.h > 0.3 || S.venting) {
+    ctx.fillStyle = S.h > 0.3 ? COL.acid : COL.gas; ctx.globalAlpha = 0.9;
+    ctx.beginPath(); ctx.moveTo(...PT(xC - 0.25, zc)); ctx.quadraticCurveTo(...PT(1.0, (zc + level + m) / 2), ...PT(0.9, level + m + 0.9));
+    ctx.lineTo(...PT(2.3, level + m + 0.9)); ctx.quadraticCurveTo(...PT(2.0, (zc + level + m) / 2), ...PT(xC + 0.25, zc)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  // swallowed bolus entering the stomach: a stream from the cardia, then a pool that settles and mixes
+  for (const d of S.drops) {
+    const colr = d.kind === 'solid' ? COL.solid : COL.liquid;
+    const meal = S.post || S.acid;
+    const rx0 = meal ? 1.6 : 2.6, rz0 = meal ? level + 0.15 + m : -10.0 + m;
+    const ft = clamp(d.since / 1.4, 0, 1), e = 1 - (1 - ft) * (1 - ft);
+    const px = lerp(0.2, rx0, e), pz = lerp(zc - 1.2, rz0, e);
+    const sz = Math.sqrt(Math.max(0.08, d.frac));
+    const fade = clamp(1 - d.age / 10, 0, 1);
+    if (d.streaming) {
+      // tapered stream: as wide as the open lumen at the cardia, narrowing as it falls
+      const wT = Math.max(last.r, 0.22), wB = d.kind === 'solid' ? 0.3 : 0.2, wM = (wT + wB) / 2, mz = (zc + pz) / 2;
+      ctx.fillStyle = colr; ctx.globalAlpha = 0.92;
+      ctx.beginPath();
+      ctx.moveTo(...PT(xC - wT, zc + 0.3));
+      ctx.quadraticCurveTo(...PT(xC - wT, zc - 0.2), ...PT(1.3 - wM, mz));
+      ctx.quadraticCurveTo(...PT(px - wB - 0.2, pz + 0.6), ...PT(px - wB, pz));
+      ctx.lineTo(...PT(px + wB, pz));
+      ctx.quadraticCurveTo(...PT(px + wB + 0.2, pz + 0.6), ...PT(1.3 + wM, mz));
+      ctx.quadraticCurveTo(...PT(xC + wT, zc - 0.2), ...PT(xC + wT, zc + 0.3));
+      ctx.closePath(); ctx.fill();
+      if (d.kind === 'liquid') {
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        for (let j = 0; j < 4; j++) {
+          const f = ((S.t * 1.6 + j * 0.25) % 1), qx = lerp(lerp(xC, 1.3, f), lerp(1.3, px, f), f), qz = lerp(lerp(zc, (zc + pz) / 2, f), lerp((zc + pz) / 2, pz, f), f);
+          ctx.beginPath(); ctx.arc(X(qx), Y(qz), 2, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+    ctx.globalAlpha = 0.92 * fade; ctx.fillStyle = colr;
+    if (d.kind === 'solid') {
+      const rr = 0.75 * sz * PX;
+      ctx.beginPath();
+      for (let j = 0; j <= 10; j++) { const a = j / 10 * Math.PI * 2, wob = 1 + 0.12 * Math.sin(a * 3 + 1); const xx = X(px) + Math.cos(a) * rr * wob, yy = Y(pz) + Math.sin(a) * rr * 0.8 * wob; j ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+      ctx.closePath(); ctx.fill();
+    } else {
+      const spread = 1 + d.age * 0.18;
+      ctx.beginPath(); ctx.ellipse(X(px), Y(pz), 1.4 * sz * spread * PX, 0.5 * sz * PX / Math.sqrt(spread), meal ? 0 : -0.25, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // rugae and duodenal folds
+  ctx.strokeStyle = 'rgba(176,80,74,0.2)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (let j = 0; j < 6; j++) {
+    ctx.beginPath(); ctx.moveTo(...PT(1.2 + j * 0.85, -1.2 - j * 0.3 + m));
+    ctx.bezierCurveTo(...PT(1.6 + j * 0.9, -4.0 + m), ...PT(0.4 + j * 0.8, -6.5 + m), ...PT(0.6 + j * 0.55, -9.4 + j * 0.15 + m));
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1.5;
+  for (let z = -10.4; z > -14.5; z -= 0.5) { ctx.beginPath(); ctx.moveTo(...PT(-5.0, z + m)); ctx.quadraticCurveTo(...PT(-4.45, z - 0.18 + m), ...PT(-3.85, z + m)); ctx.stroke(); }
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = 'rgba(150,55,50,0.14)'; ctx.lineWidth = 0.9 * PX; gastroPath(ctx, g, true); ctx.stroke();
+  ctx.restore();
+  gastroPath(ctx, g, true);
+  ctx.strokeStyle = '#C9776E'; ctx.lineWidth = 0.28 * PX; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(110,40,40,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+  // pyloric muscle ring
+  ctx.fillStyle = '#B4605A';
+  ctx.beginPath(); ctx.ellipse(X(-2.05), Y(-8.45 + m), 0.3 * PX, 0.2 * PX, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(X(-2.05), Y(-9.37 + m), 0.3 * PX, 0.2 * PX, 0, 0, Math.PI * 2); ctx.fill();
+
+  // clasp fibres continue down the lesser curve as the gastric inner circular layer
+  if (!sac) {
+    const gc = ctx.createLinearGradient(0, Y(zc), 0, Y(-3.6 + m));
+    gc.addColorStop(0, mix(COL.lesRelax, COL.lesOn, clamp(S.lesP / 32, 0, 1)));
+    gc.addColorStop(1, '#D4867D');
+    ctx.strokeStyle = gc; ctx.globalAlpha = 0.5; ctx.lineWidth = 0.11 * PX; ctx.lineCap = 'round';
+    const lcC = lesserCtrl(g);
+    ctx.beginPath(); ctx.moveTo(...PT(-ocL + 0.24, zc));
+    ctx.bezierCurveTo(...PT(lcC.c2[0] + 0.24, lcC.c2[1]), ...PT(lcC.c1[0] + 0.24, lcC.c1[1]), ...PT(0.98, -3.1 + m));
+    ctx.bezierCurveTo(...PT(1.17, -4.4 + m), ...PT(0.97, -6.3 + m), ...PT(0.55, -7.2 + m));
+    ctx.stroke(); ctx.lineCap = 'butt'; ctx.globalAlpha = 1;
+  }
+
+  // gastric sling fibres (C2)
+  {
+    const sa = clamp(S.lesP / 32, 0, 1);
+    ctx.strokeStyle = mix(COL.lesRelax, COL.lesOn, sa); ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 0.2 * PX; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(...PT(xcf(zc + 0.8) + last.r + last.wR - 0.05, zc + 0.8));
+    ctx.quadraticCurveTo(...PT(ocR + 0.55, zc - 0.1), ...PT(ocR + 0.25, zc - 0.75));
+    ctx.quadraticCurveTo(...PT(ocR - 0.1, -4.2 + m), ...PT(1.35, -6.0 + m));
+    ctx.stroke(); ctx.globalAlpha = 1; ctx.lineCap = 'butt';
+  }
+
+  // phrenoesophageal ligament
+  const insZ = -2 + S.s + 2.5 + S.E + hz;
+  const insR = outerAt(prof, insZ);
+  const stretch = clamp((S.E + S.s * 0.7) / 3.5, 0, 1);
+  ctx.strokeStyle = mix(COL.lig, COL.ligHot, stretch); ctx.lineWidth = 1.6;
+  const amp = lerp(4.5, 2, stretch);
+  spring(ctx, X(-(hw + 0.45)), Y(hz - 0.45), X(xcf(insZ) - insR), Y(insZ), 6, amp);
+  spring(ctx, X(hw + 0.45), Y(hz - 0.45), X(xcf(insZ) + insR), Y(insZ), 6, amp);
+
+  // oesophagus as continuous walls and lumen
+  const y0 = Y(ZV), y1 = Y(zc), span = (y1 - y0) || 1;
+  const gL = ctx.createLinearGradient(0, y0, 0, y1), gR = ctx.createLinearGradient(0, y0, 0, y1), gM = ctx.createLinearGradient(0, y0, 0, y1);
+  for (const p of prof) {
+    const tt = clamp((Y(p.z) - y0) / span, 0, 1), a = clamp(p.act, 0, 1);
+    const lesW = clamp(p.bump * 3, 0, 1);
+    const mc = lesW > 0 ? mix(COL.musRelax, COL.musOn, a) : mix(COL.musRelax, COL.musOn, a);
+    const lc2 = mix(COL.lesRelax, COL.lesOn, clamp(p.lp / 32, 0, 1));
+    const wc = p.bump > 0.02 ? lc2 : mc;
+    gL.addColorStop(tt, wc);
+    gR.addColorStop(tt, wc);
+    let lc;
+    if (p.content === 'liquid') lc = COL.liquid;
+    else if (p.content === 'solid') lc = COL.solid;
+    else if (p.content === 'acid') lc = COL.acid;
+    else if (p.content === 'gas') lc = COL.gas;
+    else lc = mix(COL.mucosa, COL.residue, S.residue * 0.75 * (p.z < zc + 9 ? 1 : 0));
+    gM.addColorStop(tt, lc);
+  }
+  const poly = (f1, f2) => {
+    ctx.beginPath();
+    prof.forEach((q, i) => { const x = X(f1(q)), y = Y(q.z); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    for (let i = prof.length - 1; i >= 0; i--) ctx.lineTo(X(f2(prof[i])), Y(prof[i].z));
+    ctx.closePath();
+  };
+  poly(q => q.xc - q.r - q.w, q => q.xc - q.r); ctx.fillStyle = gL; ctx.fill();
+  poly(q => q.xc + q.r, q => q.xc + q.r + q.wR); ctx.fillStyle = gR; ctx.fill();
+  poly(q => q.xc - q.r, q => q.xc + q.r); ctx.fillStyle = gM; ctx.fill();
+  const edge = (f, col, lw) => { ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath(); prof.forEach((q, i) => { const x = X(f(q)), y = Y(q.z); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke(); };
+  edge(q => q.xc - q.r - q.w, 'rgba(110,40,45,0.4)', 1);
+  edge(q => q.xc + q.r + q.wR, 'rgba(110,40,45,0.4)', 1);
+  edge(q => q.xc - q.r - q.w * 0.55, 'rgba(255,255,255,0.22)', 1.5);
+  // blend the LES walls into the gastric wall; clipped so nothing spills outside the organ
+  {
+    const ref = prof[Math.max(0, prof.length - 6)];
+    const topC = ref.bump > 0.02 ? mix(COL.lesRelax, COL.lesOn, clamp(ref.lp / 32, 0, 1)) : mix(COL.musRelax, COL.musOn, clamp(ref.act, 0, 1));
+    const yT = Y(zc + 0.45), yB = Y(zc - 0.7);
+    const bg = ctx.createLinearGradient(0, yT, 0, yB);
+    bg.addColorStop(0, topC); bg.addColorStop(0.55, 'rgba(201,119,110,0.92)'); bg.addColorStop(1, 'rgba(201,119,110,0)');
+    const lw = last.w, rw = last.wR, rr = last.r;
+    ctx.save();
+    gastroPath(ctx, g, false); ctx.rect(X(xC - 3), 0, 6 * PX, Y(zc) - 0.5); ctx.clip('nonzero');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(X(xcf(zc + 0.45) - ref.r - ref.w), yT);
+    ctx.lineTo(X(xcf(zc + 0.45) - ref.r), yT);
+    ctx.quadraticCurveTo(X(xC - rr), Y(zc - 0.25), X(xC - rr + 0.1), yB);
+    ctx.lineTo(X(xC - rr - lw + 0.15), yB);
+    ctx.quadraticCurveTo(X(xC - rr - lw), Y(zc - 0.2), X(xcf(zc + 0.45) - ref.r - ref.w), yT);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(X(xcf(zc + 0.45) + ref.r), yT);
+    ctx.lineTo(X(xcf(zc + 0.45) + ref.r + ref.wR), yT);
+    ctx.quadraticCurveTo(X(xC + rr + rw + 0.1), Y(zc - 0.1), X(xC + rr + rw + 0.35), yB);
+    ctx.lineTo(X(xC + rr + 0.25), yB);
+    ctx.quadraticCurveTo(X(xC + rr + 0.05), Y(zc - 0.2), X(xcf(zc + 0.45) + ref.r), yT);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // fibre orientation inside the LES (one colour, hatching shows derivation)
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1;
+  for (let i = 0; i < prof.length; i += 4) {
+    const q = prof[i];
+    if (q.bump < 0.15 || q.a < -2 || q.a > 1.5) continue;
+    const y = Y(q.z);
+    ctx.beginPath(); ctx.moveTo(X(q.xc - q.r - q.w) + 2, y); ctx.lineTo(X(q.xc - q.r) - 2, y); ctx.stroke();
+    if (q.a > 0) { ctx.beginPath(); ctx.moveTo(X(q.xc + q.r) + 2, y); ctx.lineTo(X(q.xc + q.r + q.wR) - 2, y); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.moveTo(X(q.xc + q.r) + 2, y - 3); ctx.lineTo(X(q.xc + q.r + q.wR) - 2, y + 4); ctx.stroke(); }
+  }
+
+  // flap valve: a rounded fold of the greater-curve wall, kept inside the stomach and flattened as the junction lifts
+  {
+    const sz = S.flap * (1 - liftE);
+    if (sz > 0.06) {
+      ctx.save(); gastroPath(ctx, g, false); ctx.clip();
+      const w1 = [ocR + 0.04, zc - 0.12], w2 = [ocR + 0.16, zc - 0.78], tip = [ocR - 0.42 * sz, zc - 0.45];
+      ctx.beginPath();
+      ctx.moveTo(...PT(w1[0], w1[1]));
+      ctx.bezierCurveTo(...PT(ocR - 0.15 * sz, zc - 0.1), ...PT(tip[0] - 0.1, tip[1] + 0.14), ...PT(tip[0], tip[1]));
+      ctx.bezierCurveTo(...PT(tip[0] + 0.02, tip[1] - 0.16), ...PT(ocR - 0.1 * sz, zc - 0.78), ...PT(w2[0], w2[1]));
+      ctx.closePath();
+      const fg = ctx.createLinearGradient(0, Y(zc - 0.1), 0, Y(zc - 0.8));
+      fg.addColorStop(0, '#E2A196'); fg.addColorStop(1, '#C97A70');
+      ctx.fillStyle = fg; ctx.fill();
+      ctx.restore();
+    }
+  }
+  // angle of His: a quiet arc between the oesophageal axis and the fundic wall
+  {
+    const hx = X(ocR + 0.12), hy = Y(zc - 0.05), th = S.his * Math.PI / 180, R = 16;
+    const a0 = -Math.PI / 2 - axTilt;
+    ctx.strokeStyle = theme.accent; ctx.globalAlpha = 0.8; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(hx, hy, R, a0, a0 + th); ctx.stroke();
+    for (const an of [a0, a0 + th]) { ctx.beginPath(); ctx.moveTo(hx + (R - 4) * Math.cos(an), hy + (R - 4) * Math.sin(an)); ctx.lineTo(hx + (R + 4) * Math.cos(an), hy + (R + 4) * Math.sin(an)); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
+  // crural ring around the hiatus
+  for (const sgn of [-1, 1]) {
+    const cxl = sgn * (ci + cw / 2);
+    ctx.fillStyle = crC;
+    ctx.beginPath(); ctx.ellipse(X(cxl), Y(hz), (cw / 2 + 0.08) * PX, 0.95 * PX, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1;
+    for (let j = -2; j <= 2; j++) {
+      ctx.beginPath(); ctx.ellipse(X(cxl), Y(hz + j * 0.32), (cw / 2) * PX, 0.12 * PX, 0, Math.PI * 0.1, Math.PI * 0.9); ctx.stroke();
+    }
+  }
+
+  // diaphragm domes: tapered muscular sheets, active with every inspiration
+  const dc = mix(COL.costalRelax, COL.costalOn, insp);
+  for (const d of [dL, dR]) {
+    const N = 28, up = [], lo = [];
+    for (let i = 0; i <= N; i++) { const t = i / N, [x, z] = qpt(d, t), th = lerp(0.62, 0.38, t); up.push([X(x), Y(z)]); lo.push([X(x), Y(z - th)]); }
+    ctx.fillStyle = dc; ctx.beginPath(); ctx.moveTo(...up[0]);
+    for (const q of up) ctx.lineTo(...q);
+    for (let i = lo.length - 1; i >= 0; i--) ctx.lineTo(...lo[i]);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 1;
+    for (const f of [0.35, 0.7]) { ctx.beginPath(); up.forEach((q, i) => { const yy = lerp(q[1], lo[i][1], f); i ? ctx.lineTo(q[0], yy) : ctx.moveTo(q[0], yy); }); ctx.stroke(); }
+  }
+
+  // gas bubbles venting
+  if (S.venting) {
+    ctx.fillStyle = COL.gas; ctx.strokeStyle = '#8FA2AF'; ctx.lineWidth = 0.8;
+    for (let j = 0; j < 8; j++) {
+      const zz = zc - 1 + ((S.t * 6 + j * 1.9) % 9);
+      ctx.beginPath(); ctx.arc(X(xcf(zz) + 0.12 * Math.sin(j * 2 + S.t * 3)), Y(zz), 0.16 * PX, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  // hiatus reference and ruler
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = theme.muted; ctx.globalAlpha = 0.5; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(X(hw + 0.3), Y(0)); ctx.lineTo(AW - 38, Y(0)); ctx.stroke();
+  ctx.setLineDash([]);
+  const rx = AW - 32;
+  ctx.beginPath(); ctx.moveTo(rx, Y(8)); ctx.lineTo(rx, Y(-12)); ctx.stroke();
+  ctx.font = '500 10.5px "IBM Plex Sans", system-ui, sans-serif'; ctx.fillStyle = theme.muted; ctx.textAlign = 'left';
+  for (let z = -12; z <= 8; z++) {
+    const L = z % 5 === 0 ? 7 : 3;
+    ctx.beginPath(); ctx.moveTo(rx, Y(z)); ctx.lineTo(rx + L, Y(z)); ctx.stroke();
+    if (z % 5 === 0) ctx.fillText(String(z), rx + 8, Y(z) + 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // shortening arrow
+  if (S.E > 0.4) {
+    const lc = (S.lesBot + S.lesTop) / 2, ax = X(hw + 1.05);
+    ctx.strokeStyle = theme.accent; ctx.fillStyle = theme.accent; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(ax, Y(lc - S.E)); ctx.lineTo(ax, Y(lc) + 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax, Y(lc)); ctx.lineTo(ax - 5, Y(lc) + 8); ctx.lineTo(ax + 5, Y(lc) + 8); ctx.closePath(); ctx.fill();
+    ctx.font = '600 12px "IBM Plex Sans", system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(`C4 lift ${S.E.toFixed(1)} cm`, ax + 8, Y(lc - S.E / 2) + 4);
+  }
+
+  if (showLabels) {
+    ctx.font = '500 12.5px "IBM Plex Sans", system-ui, sans-serif';
+    const halo = theme.thorax, haloA = theme.abdomen;
+    const lc = (S.lesBot + S.lesTop) / 2;
+    tag(ctx, 'Thorax', 12, Y(8.0));
+    tag(ctx, 'Abdomen', X(6.0), Y(-12.2));
+    tag(ctx, 'Liver', X(-6.4), Y(-4.8), haloA);
+    const Et = S.E + hz, zInt = 0.75 + S.s + Et, zCl = -1.1 + S.s + Et;
+    label(ctx, 'Oesophageal body (C8)', 10, Y(6.8), X(xcf(6.8) - outerAt(prof, 6.8)), Y(6.8), halo);
+    tag(ctx, 'distal circular muscle', 10, Y(Math.max(zInt + 2.0, 4.6)) + 15, halo);
+    // brackets beside the lesser-curve LES wall show exactly which segment each label means
+    const bracket = (za, zb) => {
+      const pts = [];
+      for (let k = 0; k <= 12; k++) { const z = lerp(za, zb, k / 12); pts.push([X(xcf(z) - outerAt(prof, z) - 0.18), Y(z)]); }
+      ctx.strokeStyle = theme.ink; ctx.globalAlpha = 0.65; ctx.lineWidth = 1.4;
+      ctx.beginPath(); pts.forEach((q, k) => k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.stroke();
+      for (const q of [pts[0], pts[pts.length - 1]]) { ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[0] + 6, q[1]); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      return pts[6];
+    };
+    const zLb = -2 + S.s + Et, zMid = 0 + S.s + Et, zLt = 1.5 + S.s + Et;
+    const bInt = bracket(zLt - 0.1, zMid + 0.08), bCl = bracket(zMid - 0.08, zLb + 0.15);
+    label(ctx, 'Intrinsic LES: thickened', 10, Y(Math.max(zInt + 2.0, 4.6)), bInt[0] - 2, bInt[1], halo);
+    const yCl = clamp(bCl[1], Y(1.2), Y(-0.9));
+    label(ctx, 'Clasp fibres (C1): lesser-', 10, yCl, bCl[0] - 2, bCl[1], haloA);
+    tag(ctx, 'curve side of the lower LES', 10, yCl + 15, haloA);
+    {
+      const lx = (X(-(hw + 0.45)) + X(xcf(insZ) - insR)) / 2, ly = (Y(hz - 0.45) + Y(insZ)) / 2;
+      label(ctx, 'Phrenoesophageal', 10, yCl - 38, lx, ly, halo);
+      tag(ctx, 'ligament (C5)', 10, yCl - 23, halo);
+    }
+    label(ctx, 'Right crus (C3), to L1–L3', 10, Y(-2.2), X(-ci - 0.35), Y(hz - 1.5), haloA);
+
+    label(ctx, 'Duodenal bulb (D1)', 10, Y(-6.4), X(-4.1), Y(-8.3 + m), haloA);
+    label(ctx, 'Pylorus', 10, Y(-10.9), X(-2.05), Y(-9.4 + m), haloA);
+    label(ctx, 'Second part (D2)', X(-3.2), Y(-12.0), X(-3.9), Y(-11.8 + m), haloA);
+    label(ctx, 'Fundus (C7)', X(4.1), Y(-0.9), X(3.4), Y(0.0 + m));
+    label(ctx, `Angle of His ${S.his.toFixed(0)}° (C6)`, X(2.5), Y(-2.0), X(ocR + 0.35), Y(zc - 0.15));
+    label(ctx, 'Sling fibres (C2): gastric', X(2.2), Y(-3.4), X(ocR + 0.2), Y(zc - 1.0 + 0.0));
+    tag(ctx, 'inner oblique layer', X(2.2), Y(-3.4) + 15);
+    if (!sac) { label(ctx, 'Clasp fibres continue as the', X(1.6), Y(-7.9), X(1.05), Y(-5.6 + m)); tag(ctx, 'gastric inner circular layer', X(1.6), Y(-7.9) + 15); }
+    tag(ctx, 'Hiatus, z = 0', AW - 112, Y(0) - 6);
+    if (S.acid) {
+      if (S.sacAcid) label(ctx, 'Acid pocket in sac', X(2.6), Y(zc + 0.6), X(0.4), Y((zc + m) / 2));
+      else label(ctx, 'Acid pocket', X(3.2), Y(-5.6), X(2.4), Y(level + 0.4 + m));
+    }
+  }
+}
+
+// ---------- Charts ----------
+const bchart = document.getElementById('bchart'), hrm = document.getElementById('hrm');
+const bctx = bchart.getContext('2d'), hctx = hrm.getContext('2d');
+let bBase = null, hBase = null, bGeom = null, hGeom = null;
+const BH = 200, HH = 300;
+
+function sizeChart(c, H) {
+  const w = c.clientWidth || 600;
+  c.width = Math.round(w * dpr); c.height = Math.round(H * dpr);
+  c.style.height = H + 'px';
+  return w;
+}
+
+const CMAP = [[-10, [18, 22, 84]], [0, [28, 58, 168]], [10, [40, 130, 216]], [20, [56, 186, 206]], [30, [86, 200, 112]], [45, [226, 226, 60]], [70, [244, 150, 40]], [100, [218, 40, 40]], [150, [150, 20, 100]], [200, [235, 205, 235]]];
+function cmap(p) {
+  if (p <= CMAP[0][0]) return CMAP[0][1];
+  for (let i = 1; i < CMAP.length; i++) {
+    if (p <= CMAP[i][0]) {
+      const [a, ca] = CMAP[i - 1], [b, cb] = CMAP[i], t = (p - a) / (b - a);
+      return [lerp(ca[0], cb[0], t), lerp(ca[1], cb[1], t), lerp(ca[2], cb[2], t)];
+    }
+  }
+  return CMAP[CMAP.length - 1][1];
+}
+
+function buildBarrier() {
+  const W = sizeChart(bchart, BH);
+  const off = document.createElement('canvas'); off.width = bchart.width; off.height = bchart.height;
+  const c = off.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const m = { l: 44, r: 12, t: 10, b: 24 };
+  const sn = sim.snaps;
+  let ymax = 50, ymin = -5;
+  for (const S of sn) { ymax = Math.max(ymax, S.barrier, S.grad); ymin = Math.min(ymin, S.grad); }
+  ymax = Math.min(190, Math.ceil((ymax + 8) / 20) * 20); ymin = Math.max(-20, Math.floor(ymin / 10) * 10);
+  const x = t => m.l + t / sim.dur * (W - m.l - m.r);
+  const y = p => m.t + (ymax - p) / (ymax - ymin) * (BH - m.t - m.b);
+  bGeom = { m, W, x, y, ymax, ymin };
+  // grid
+  c.font = '11px "IBM Plex Sans", system-ui, sans-serif'; c.fillStyle = theme.muted; c.strokeStyle = theme.line; c.lineWidth = 1;
+  const stepY = ymax - ymin > 100 ? 40 : 20;
+  c.textAlign = 'right';
+  for (let p = Math.ceil(ymin / stepY) * stepY; p <= ymax; p += stepY) {
+    c.beginPath(); c.moveTo(m.l, y(p)); c.lineTo(W - m.r, y(p)); c.stroke();
+    c.fillText(String(p), m.l - 6, y(p) + 4);
+  }
+  c.save(); c.translate(12, m.t + (BH - m.t - m.b) / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillText('mmHg', 0, 0); c.restore();
+  c.textAlign = 'center';
+  const stepT = sim.dur > 24 ? 5 : 2;
+  for (let t = 0; t <= sim.dur + 1e-6; t += stepT) c.fillText(t + ' s', x(t), BH - 6);
+  // reflux shading
+  c.fillStyle = theme.reflux;
+  for (let i = 0; i < sn.length; i++) if (sn[i].ex > 0) c.fillRect(x(sn[i].t), m.t, Math.max(1, x(DT) - x(0) + 0.5), BH - m.t - m.b);
+  // stacked areas
+  const comps = [['lesP', theme.les], ['crusP', theme.crus], ['abdP', theme.abd], ['flapP', theme.flap]];
+  const cum = new Float32Array(sn.length);
+  for (const [key, colr] of comps) {
+    c.beginPath();
+    for (let i = 0; i < sn.length; i += 2) { const v = cum[i] + Math.max(0, sn[i][key]); i === 0 ? c.moveTo(x(sn[i].t), y(v)) : c.lineTo(x(sn[i].t), y(v)); }
+    for (let i = sn.length - 1 - ((sn.length - 1) % 2); i >= 0; i -= 2) c.lineTo(x(sn[i].t), y(cum[i]));
+    c.closePath(); c.fillStyle = colr; c.globalAlpha = 0.78; c.fill(); c.globalAlpha = 1;
+    for (let i = 0; i < sn.length; i++) cum[i] += Math.max(0, sn[i][key]);
+  }
+  // gradient line
+  c.beginPath(); c.strokeStyle = theme.grad; c.lineWidth = 1.6;
+  for (let i = 0; i < sn.length; i += 2) { const p = sn[i].grad; i === 0 ? c.moveTo(x(sn[i].t), y(p)) : c.lineTo(x(sn[i].t), y(p)); }
+  c.stroke();
+  bBase = off;
+}
+
+function buildHRM() {
+  const W = sizeChart(hrm, HH);
+  const off = document.createElement('canvas'); off.width = hrm.width; off.height = hrm.height;
+  const c = off.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const m = { l: 44, r: 62, t: 8, b: 24 };
+  const sn = sim.snaps, stride = 2, nc = Math.ceil(sn.length / stride);
+  const img = document.createElement('canvas'); img.width = nc; img.height = NZ;
+  const ic = img.getContext('2d'), id = ic.createImageData(nc, NZ);
+  const grid = new Float32Array(nc * NZ);
+  for (let j = 0; j < nc; j++) {
+    const S = sn[Math.min(sn.length - 1, j * stride)];
+    for (let k = 0; k < NZ; k++) grid[k * nc + j] = S.col[k];
+  }
+  // temporal: forward-backward exponential smoothing (zero phase), time constant ~0.12 s
+  const al = 1 - Math.exp(-(DT * stride) / 0.12);
+  for (let k = 0; k < NZ; k++) {
+    const o = k * nc;
+    for (let j = 1; j < nc; j++) grid[o + j] = grid[o + j - 1] + al * (grid[o + j] - grid[o + j - 1]);
+    for (let j = nc - 2; j >= 0; j--) grid[o + j] = grid[o + j + 1] + al * (grid[o + j] - grid[o + j + 1]);
+  }
+  // spatial: gaussian blur along z (sigma ~0.5 cm) like interpolation between 1-cm sensors
+  {
+    const sig = 0.5 / DZ, R = Math.ceil(sig * 3), ker = [];
+    let sum = 0; for (let d = -R; d <= R; d++) { const v = Math.exp(-0.5 * (d / sig) ** 2); ker.push(v); sum += v; }
+    for (let i = 0; i < ker.length; i++) ker[i] /= sum;
+    const tmp = new Float32Array(NZ);
+    for (let j = 0; j < nc; j++) {
+      for (let k = 0; k < NZ; k++) {
+        let acc = 0;
+        for (let d = -R; d <= R; d++) { const kk = Math.min(NZ - 1, Math.max(0, k + d)); acc += ker[d + R] * grid[kk * nc + j]; }
+        tmp[k] = acc;
+      }
+      for (let k = 0; k < NZ; k++) grid[k * nc + j] = tmp[k];
+    }
+  }
+  for (let k = 0; k < NZ; k++) for (let j = 0; j < nc; j++) {
+    const [r, g, b] = cmap(grid[k * nc + j]); const o = (k * nc + j) * 4;
+    id.data[o] = r; id.data[o + 1] = g; id.data[o + 2] = b; id.data[o + 3] = 255;
+  }
+  ic.putImageData(id, 0, 0);
+  const pw = W - m.l - m.r, ph = HH - m.t - m.b;
+  c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+  c.drawImage(img, m.l, m.t, pw, ph);
+  // 30 mmHg isobaric contour (marching squares), as used for Chicago Classification reading
+  const iso = 30, gx = j => m.l + (j + 0.5) / nc * pw, gy = k => m.t + (k + 0.5) / NZ * ph;
+  c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = 0.9; c.beginPath();
+  for (let k = 0; k < NZ - 1; k++) for (let j = 0; j < nc - 1; j++) {
+    const a = grid[k * nc + j], b2 = grid[k * nc + j + 1], c2 = grid[(k + 1) * nc + j + 1], d = grid[(k + 1) * nc + j];
+    const idx = (a > iso ? 8 : 0) | (b2 > iso ? 4 : 0) | (c2 > iso ? 2 : 0) | (d > iso ? 1 : 0);
+    if (idx === 0 || idx === 15) continue;
+    const lerpP = (p1, p2, v1, v2) => [p1[0] + (p2[0] - p1[0]) * (iso - v1) / (v2 - v1), p1[1] + (p2[1] - p1[1]) * (iso - v1) / (v2 - v1)];
+    const A = [gx(j), gy(k)], B = [gx(j + 1), gy(k)], C = [gx(j + 1), gy(k + 1)], D = [gx(j), gy(k + 1)];
+    const top = lerpP(A, B, a, b2), right = lerpP(B, C, b2, c2), bottom = lerpP(D, C, d, c2), left = lerpP(A, D, a, d);
+    const segsM = { 1: [[left, bottom]], 2: [[bottom, right]], 3: [[left, right]], 4: [[top, right]], 5: [[left, top], [bottom, right]], 6: [[top, bottom]], 7: [[left, top]], 8: [[left, top]], 9: [[top, bottom]], 10: [[left, bottom], [top, right]], 11: [[top, right]], 12: [[left, right]], 13: [[bottom, right]], 14: [[left, bottom]] }[idx];
+    for (const [p1, p2] of segsM) { c.moveTo(p1[0], p1[1]); c.lineTo(p2[0], p2[1]); }
+  }
+  c.stroke();
+  const x = t => m.l + t / sim.dur * pw;
+  const y = z => m.t + (ZS_TOP - z) / (ZS_TOP - ZS_BOT) * ph;
+  hGeom = { m, W, x, y };
+  c.font = '11px "IBM Plex Sans", system-ui, sans-serif'; c.fillStyle = theme.muted; c.textAlign = 'right';
+  for (let z = -5; z <= 20; z += 5) c.fillText(String(z), m.l - 6, y(z) + 4);
+  c.save(); c.translate(12, m.t + ph / 2); c.rotate(-Math.PI / 2); c.textAlign = 'center'; c.fillText('cm from hiatus', 0, 0); c.restore();
+  c.textAlign = 'center';
+  const stepT = sim.dur > 24 ? 5 : 2;
+  for (let t = 0; t <= sim.dur + 1e-6; t += stepT) c.fillText(t + ' s', x(t), HH - 6);
+  // region tags
+  c.textAlign = 'left'; c.font = '600 11px "IBM Plex Sans", system-ui, sans-serif'; c.fillStyle = 'rgba(255,255,255,0.92)';
+  c.fillText('UOS', m.l + 6, y(Z_UOS) + 4); c.fillText('EGJ', m.l + 6, y(0) + 4); c.fillText('Stomach', m.l + 6, y(-3.6) + 4);
+  // colour scale
+  const bx = W - m.r + 14, bw = 10;
+  for (let i = 0; i < ph; i++) { const v = 160 - i / ph * 170; const [r, g, b] = cmap(v); c.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`; c.fillRect(bx, m.t + i, bw, 1.5); }
+  c.font = '10.5px "IBM Plex Sans", system-ui, sans-serif'; c.fillStyle = theme.muted;
+  for (const v of [0, 30, 50, 100, 150]) { const yy = m.t + (160 - v) / 170 * ph; c.fillText(String(v), bx + bw + 4, yy + 4); }
+  c.fillText('mmHg', bx - 4, HH - 6);
+  hBase = off;
+}
+
+function drawCharts(S) {
+  if (bBase) {
+    bctx.setTransform(1, 0, 0, 1, 0, 0); bctx.clearRect(0, 0, bchart.width, bchart.height); bctx.drawImage(bBase, 0, 0);
+    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const { x, y, m } = bGeom, px = x(S.t);
+    bctx.strokeStyle = theme.accent; bctx.lineWidth = 1.5;
+    bctx.beginPath(); bctx.moveTo(px, m.t); bctx.lineTo(px, BH - m.b); bctx.stroke();
+    bctx.fillStyle = theme.grad; bctx.beginPath(); bctx.arc(px, y(S.grad), 3.5, 0, Math.PI * 2); bctx.fill();
+    bctx.fillStyle = theme.accent; bctx.beginPath(); bctx.arc(px, y(S.barrier), 3.5, 0, Math.PI * 2); bctx.fill();
+  }
+  if (hBase) {
+    hctx.setTransform(1, 0, 0, 1, 0, 0); hctx.clearRect(0, 0, hrm.width, hrm.height); hctx.drawImage(hBase, 0, 0);
+    hctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const { x, m } = hGeom, px = x(S.t);
+    hctx.strokeStyle = '#FFFFFF'; hctx.lineWidth = 1.5;
+    hctx.beginPath(); hctx.moveTo(px, m.t); hctx.lineTo(px, HH - m.b); hctx.stroke();
+  }
+}
+function rebuildCharts() { if (!sim) return; dpr = Math.max(1, window.devicePixelRatio || 1); buildBarrier(); buildHRM(); }
+
+// ---------- Panel ----------
+const STATES = [['rest', 'Rest'], ['swallow', 'Swallow relaxation'], ['after', 'After-contraction'], ['tlesr', 'TLESR'], ['reflux', 'Reflux'], ['clear', 'Clearance']];
+const chipsEl = document.getElementById('chips');
+const chipEls = {};
+for (const [k, n] of STATES) { const e = document.createElement('span'); e.className = 'chip'; e.textContent = n; chipsEl.appendChild(e); chipEls[k] = e; }
+const ROWS = [
+  ['LES clasp + sling (C1/C2)', 'lesP', 'mmHg', 50, '--c-les'],
+  ['Crus on LES (C3)', 'crusP', 'mmHg', 50, '--c-crus'],
+  ['Abdominal segment', 'abdP', 'mmHg', 50, '--c-abd'],
+  ['Flap valve (C6)', 'flapP', 'mmHg', 50, '--c-flap'],
+  ['Barrier total', 'barrier', 'mmHg', 80, '--accent'],
+  ['Gradient', 'grad', 'mmHg', 80, '--c-grad'],
+  null,
+  ['EGJ lift (C4)', 'E', 'cm', 4, '--accent'],
+  ['Ligament stretch (C5)', 'lig', 'cm', 5, '--accent'],
+  ['LES–crus separation', 's', 'cm', 4, '--accent'],
+  ['Angle of His (C6)', 'his', '°', 150, '--c-flap'],
+  ['Reflux column', 'h', 'cm', 13, '--c-bad']
+];
+const rowsEl = document.getElementById('rows'); const rowRefs = [];
+for (const r of ROWS) {
+  if (!r) { const d = document.createElement('div'); d.className = 'sep'; rowsEl.appendChild(d); continue; }
+  const l = document.createElement('span'); l.className = 'lbl'; l.textContent = r[0];
+  const tr = document.createElement('div'); tr.className = 'track';
+  const f = document.createElement('div'); f.className = 'fill'; f.style.background = `var(${r[4]})`; tr.appendChild(f);
+  const v = document.createElement('span'); v.className = 'val';
+  rowsEl.append(l, tr, v); rowRefs.push({ r, f, v });
+}
+const margEl = document.getElementById('marg'), narrEl = document.getElementById('narr');
+const bodyEl = document.getElementById('body'), uosEl = document.getElementById('uos');
+let lastNarr = '';
+function updatePanel(S) {
+  for (const [k] of STATES) chipEls[k].classList.toggle('on', S.state === k);
+  for (const { r, f, v } of rowRefs) {
+    const val = r[1] === 'lig' ? S.E + S.s * 0.7 : S[r[1]];
+    f.style.width = clamp(Math.abs(val) / r[3], 0, 1) * 100 + '%';
+    v.textContent = (r[2] === 'cm' ? val.toFixed(1) : val.toFixed(0)) + (r[2] === '°' ? '°' : ' ' + r[2]);
+  }
+  const mg = S.barrier - S.grad;
+  margEl.textContent = (mg >= 0 ? '+' : '−') + Math.abs(mg).toFixed(0) + ' mmHg';
+  margEl.style.color = mg >= 0 ? 'var(--c-good)' : 'var(--c-bad)';
+  bodyEl.textContent = S.body; uosEl.textContent = S.uos;
+  let key = 'start';
+  for (const e of sim.events) { if (e.t <= S.t + 1e-6) key = e.key; else break; }
+  const txt = key === 'start' ? SCEN[scKey].intro : TEXT[key];
+  if (txt !== lastNarr) { narrEl.textContent = txt; lastNarr = txt; }
+}
+
+// ---------- Controls ----------
+const scenSel = document.getElementById('scen');
+for (const k of Object.keys(SCEN)) { const o = document.createElement('option'); o.value = k; o.textContent = SCEN[k].name; scenSel.appendChild(o); }
+const ids = ['les', 'crus', 'hernia', 'vigour'];
+const inp = {}, outp = {};
+for (const k of ids) { inp[k] = document.getElementById('p-' + k); outp[k] = document.getElementById('o-' + k); }
+const bolusSel = document.getElementById('p-bolus');
+const fmt = { les: v => v + ' mmHg', crus: v => v + ' mmHg', hernia: v => (+v).toFixed(1) + ' cm', vigour: v => (+v).toFixed(2) };
+
+let scKey = 'swallow', P = {}, sim = null, t = 0;
+let playing = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let speed = 1;
+const playBtn = document.getElementById('play'), timeEl = document.getElementById('time'), tnum = document.getElementById('tnum');
+
+function applyPreset() {
+  P = Object.assign({}, BASE, SCEN[scKey].preset || {});
+  for (const k of ids) { inp[k].value = P[k]; outp[k].textContent = fmt[k](P[k]); }
+  bolusSel.value = P.bolus;
+}
+function resim(keepT) {
+  sim = simulate(SCEN[scKey], P);
+  timeEl.max = sim.dur;
+  if (!keepT) t = 0; else t = Math.min(t, sim.dur);
+  rebuildCharts();
+}
+function setPlay(v) { playing = v; playBtn.textContent = v ? 'Pause' : 'Play'; }
+
+scenSel.value = scKey;
+scenSel.addEventListener('change', () => { scKey = scenSel.value; applyPreset(); resim(false); setPlay(true); });
+for (const k of ids) inp[k].addEventListener('input', () => { P[k] = +inp[k].value; outp[k].textContent = fmt[k](P[k]); resim(true); });
+bolusSel.addEventListener('change', () => { P.bolus = bolusSel.value; resim(true); });
+document.getElementById('preset').addEventListener('click', () => { applyPreset(); resim(true); });
+playBtn.addEventListener('click', () => setPlay(!playing));
+document.getElementById('restart').addEventListener('click', () => { t = 0; setPlay(true); });
+document.getElementById('speed').addEventListener('change', e => { speed = +e.target.value; });
+timeEl.addEventListener('input', () => { t = +timeEl.value; setPlay(false); });
+document.getElementById('labels').addEventListener('change', e => { showLabels = e.target.checked; });
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) { e.preventDefault(); setPlay(!playing); }
+});
+
+function scrubFrom(canvas, geomGetter) {
+  let down = false;
+  const go = e => {
+    const g = geomGetter(); if (!g) return;
+    const rect = canvas.getBoundingClientRect();
+    const xx = e.clientX - rect.left;
+    t = clamp((xx - g.m.l) / (g.W - g.m.l - g.m.r), 0, 1) * sim.dur;
+    setPlay(false);
+  };
+  canvas.addEventListener('pointerdown', e => { down = true; canvas.setPointerCapture(e.pointerId); go(e); });
+  canvas.addEventListener('pointermove', e => { if (down) go(e); });
+  canvas.addEventListener('pointerup', () => { down = false; });
+  canvas.addEventListener('pointercancel', () => { down = false; });
+}
+scrubFrom(bchart, () => bGeom);
+scrubFrom(hrm, () => hGeom);
+
+let rsTimer = null;
+const onResize = () => { clearTimeout(rsTimer); rsTimer = setTimeout(() => { dpr = Math.max(1, window.devicePixelRatio || 1); sizeAnat(); rebuildCharts(); }, 80); };
+if (window.ResizeObserver) new ResizeObserver(onResize).observe(document.querySelector('.wrap')); else window.addEventListener('resize', onResize);
+
+// ---------- Loop ----------
+applyPreset();
+sizeAnat();
+resim(false);
+setPlay(playing);
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (playing) { t += dt * speed; if (t > sim.dur) t = 0; }
+  const idx = clamp(Math.round(t / DT), 0, sim.snaps.length - 1);
+  const S = sim.snaps[idx];
+  drawAnat(S); drawCharts(S); updatePanel(S);
+  timeEl.value = t; tnum.textContent = t.toFixed(1) + ' / ' + sim.dur + ' s';
+  requestAnimationFrame(frame);
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => rebuildCharts());
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
