@@ -944,6 +944,7 @@ function offsetPts(pts, d) {
   });
 }
 function ovPath(ctx, pts) {
+  if (!pts || pts.length < 2) { ctx.beginPath(); return; }   // nothing to draw: never throw from an overlay
   const q = pts.map(p => [X(p[0]), Y(p[1])]);
   ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]);
   for (let i = 1; i < q.length - 1; i++) ctx.quadraticCurveTo(q[i][0], q[i][1], (q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2);
@@ -1153,7 +1154,7 @@ function drawOverlays(ctx, S, A) {
     const zP = 10.6, zT = 3.4;
     const vagR = [[-2.1, 24.8], [-2.25, 21.5], [-2.0, 17.5], [-1.55, 13.5], [xcf(zP) - R(zP) - 0.25, zP]];
     const vagL = [[2.1, 24.8], [2.25, 21.5], [2.1, 17], [1.95, 14.2], [xcf(zP) + R(zP) + 0.25, zP]];
-    const trunkPts = (k) => { const out = []; for (let z = zT; z >= zc - 0.1; z -= 0.3) out.push([xcf(z) + k * R(z), z]); return out; };
+    const trunkPts = (k) => { const out = [], zStop = Math.min(zc - 0.1, zT - 0.6); for (let z = zT; z >= zStop; z -= 0.3) out.push([xcf(z) + k * R(z), z]); return out; };   // zStop: a hernia lifts the EGJ above zT, which used to leave this empty and kill the animation loop
     const antT = trunkPts(0.3), postT = trunkPts(-0.45);
     nerveLine(ctx, vagR, OVC.vagus, 2.4); nerveLine(ctx, vagL, OVC.vagus, 2.4);
     // oesophageal plexus: strands that wind around the oesophagus (those behind are drawn faint)
@@ -2884,13 +2885,17 @@ sizeAnat();
 resim(false);
 setPlay(playing);
 let last = performance.now();
+const drawErrSeen = {};
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (playing) { t += dt * speed; if (t > sim.dur) t = 0; }
   const idx = clamp(Math.round(t / DT), 0, sim.snaps.length - 1);
   const S = sim.snaps[idx];
-  if (view3d && T3) draw3D(S); else drawAnat(S);
-  drawCharts(S); drawImp(S); updatePanel(S);
+  // a drawing error must never stop the loop (it used to leave the page blank with no way back);
+  // each part is isolated so one failing overlay does not blank the rest
+  const safe = (name, fn) => { try { fn(); } catch (e) { if (!drawErrSeen[name]) { drawErrSeen[name] = 1; console.error('draw error in ' + name + ':', e); } } };
+  safe(view3d && T3 ? 'draw3D' : 'drawAnat', () => { if (view3d && T3) draw3D(S); else drawAnat(S); });
+  safe('drawCharts', () => drawCharts(S)); safe('drawImp', () => drawImp(S)); safe('updatePanel', () => updatePanel(S));
   timeEl.value = t; tnum.textContent = t.toFixed(1) + ' / ' + sim.dur + ' s';
   requestAnimationFrame(frame);
 }
