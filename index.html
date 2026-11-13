@@ -257,7 +257,7 @@ footer{color:var(--muted);font-size:12.5px;margin-top:18px;max-width:90ch}
   </div>
 
 
-  <footer>Schematic, lumped-parameter model built from the EGJ engineering specification. Pressures, timings and displacements are approximate adult values chosen for teaching and animation, not a validated physiological simulation.</footer>
+  <footer>Physics engine: volume-conserving 1D lubrication flow through a collapsible tube (tube law with strain-stiffening, thoracic and abdominal extraluminal pressures, gravity when upright), solved implicitly. The neural programme (swallow timing, deglutitive inhibition, TLESR, peristaltic activation, LES and crural tone, breathing, strain) sets the active muscle pressure; bolus transit, reflux, clearance, intrabolus pressure and pressurisation emerge from the flow, and the HRM and impedance are read from the simulated lumen by a virtual catheter. Parameters are approximate adult values; gas is not simulated as a second fluid, and the model is not validated against patient recordings.</footer>
 </div>
 
 <script>
@@ -273,12 +273,12 @@ const BASE = { les: 22, crus: 15, hernia: 0, vigour: 1, bolus: 'supine', relax: 
 const REPORT_DEFAULT = { basal: 25, irp: 10, dci: 1800, dl: 6.5, sep: 0, crus: 15, press: false };
 const COND = {
   normal: { name: 'Normal', r: {}, x: {}, note: 'Normal peristalsis and EGJ function.' },
-  hypo: { name: 'Hypotensive LES', r: { basal: 6, irp: 4 }, x: {}, note: 'Basal LES pressure below 10 mmHg: the gradient can beat the barrier between crural pulses, so reflux occurs without a TLESR.' },
+  hypo: { name: 'Hypotensive LES', r: { basal: 6, irp: 4 }, x: {}, note: 'Basal LES pressure below 10 mmHg. While the LES stays in the abdomen, abdominal pressure squeezes it as hard as it squeezes the stomach, so it can still hold at rest and under strain; it fails in a TLESR, or once a hernia lifts it into the chest (see the hypotensive LES with small hernia scenario).' },
   hh: { name: 'Hiatus hernia (EGJ type III)', r: { basal: 20, sep: 3.5 }, x: {}, note: 'LES 3.5 cm above the crus: two separate high-pressure bands on HRM, no abdominal segment and no flap valve. Acid pools in the sac.' },
   iem: { name: 'Ineffective motility (IEM)', r: { dci: 250 }, x: {}, note: 'Weak or failed contractions (DCI 100–450 mmHg·s·cm): poor bolus and refluxate clearance.' },
   absent: { name: 'Absent contractility', r: { dci: 0 }, x: {}, note: 'No peristalsis with normal EGJ relaxation (normal IRP). Seen in scleroderma.' },
-  ach1: { name: 'Achalasia type I', r: { basal: 40, irp: 28, dci: 0 }, x: { dilate: 0.35, stasis: 4.4 }, note: 'Impaired EGJ relaxation (raised IRP) with no contractility. Dilated oesophagus with retained fluid.' },
-  ach2: { name: 'Achalasia type II', r: { basal: 40, irp: 28, dci: 0, press: true }, x: { dilate: 0.15, stasis: 2.4 }, note: 'Impaired relaxation with panoesophageal pressurisation on swallowing (≥ 20% of swallows). Best response to treatment.' },
+  ach1: { name: 'Achalasia type I', r: { basal: 40, irp: 28, dci: 0 }, x: { dilate: 0.35, stasis: 4.4, tlBlock: 1 }, note: 'Impaired EGJ relaxation (raised IRP) with no contractility. Dilated oesophagus with retained fluid.' },
+  ach2: { name: 'Achalasia type II', r: { basal: 40, irp: 28, dci: 0, press: true }, x: { dilate: 0.15, stasis: 2.4, tlBlock: 1 }, note: 'Impaired relaxation with panoesophageal pressurisation on swallowing (≥ 20% of swallows). Best response to treatment.' },
   ach3: { name: 'Achalasia type III (spastic)', r: { basal: 40, irp: 25, dci: 3000, dl: 3.2 }, x: {}, note: 'Impaired relaxation with premature, spastic distal contractions (distal latency < 4.5 s).' },
   egjoo: { name: 'EGJ outflow obstruction', r: { basal: 35, irp: 20 }, x: {}, note: 'Raised IRP with preserved peristalsis: intrabolus pressure builds above the EGJ and the bolus clears slowly.' },
   des: { name: 'Distal oesophageal spasm', r: { dl: 3.4 }, x: {}, note: 'Premature contractions (distal latency < 4.5 s) with normal EGJ relaxation.' },
@@ -287,7 +287,7 @@ const COND = {
   poem: { name: 'After POEM', r: { basal: 9, irp: 6, dci: 0 }, x: { flapK: 0.4 }, note: 'Myotomy lowers EGJ pressure and weakens the flap; outflow is relieved but reflux is easier. The body stays weak.' }
 };
 // scenario presets, as report values
-const SCEN_R = { iem: { dci: 250 }, hypo: { basal: 8, irp: 5, sep: 1.5 }, hernia: { basal: 24, sep: 3.5 } };
+const SCEN_R = { iem: { dci: 250 }, hypo: { basal: 8, irp: 5, sep: 2 }, hernia: { basal: 24, sep: 3.5 } };
 // Chicago Classification v4.0 hierarchy, applied to median values (a report uses per-swallow percentages)
 function classify(R) {
   let dx;
@@ -311,9 +311,10 @@ const SCEN = {
   strain: { name: 'Cough and strain: normal EGJ', dur: 16, swallows: [], tlesr: null, post: false, acid: false,
     strains: [{ t: 3, dur: 0.45, amp: 80, kind: 'cough' }, { t: 5, dur: 0.45, amp: 80, kind: 'cough' }, { t: 8, dur: 3, amp: 40, kind: 'strain' }, { t: 13, dur: 0.45, amp: 90, kind: 'cough' }],
     intro: 'Normal EGJ under coughs and a sustained strain. The abdominal LES segment and the crus scale with abdominal pressure, so the barrier tracks the gradient.' },
-  hypo: { name: 'Hypotensive LES with small hernia', dur: 30, swallows: [], tlesr: null, strains: [], post: false, acid: true,
-    preset: { les: 5, hernia: 1.5 },
-    intro: 'Basal LES tone 5 mmHg with 1.5 cm LES–crus separation. No TLESR is needed: the gradient beats the barrier repeatedly.' },
+  hypo: { name: 'Hypotensive LES with small hernia', dur: 30, swallows: [], tlesr: null, post: false, acid: true,
+    strains: [{ t: 4, dur: 2.5, amp: 18, kind: 'strain' }, { t: 12, dur: 0.45, amp: 45, kind: 'cough' }, { t: 17, dur: 3, amp: 22, kind: 'strain' }, { t: 25, dur: 0.45, amp: 45, kind: 'cough' }],
+    preset: { les: 5, hernia: 2 },
+    intro: 'Low LES tone with 2 cm LES–crus separation: the LES now sits in the chest, with no abdominal segment, crural support or flap. No TLESR is needed: inspiration and everyday rises in abdominal pressure beat the weak barrier.' },
   hernia: { name: 'Type III hiatus hernia under cough', dur: 26, swallows: [20], tlesr: null, post: false, acid: true,
     strains: [{ t: 4, dur: 0.45, amp: 80, kind: 'cough' }, { t: 9, dur: 0.45, amp: 80, kind: 'cough' }, { t: 13, dur: 3, amp: 40, kind: 'strain' }],
     preset: { les: 20, hernia: 3.5 },
@@ -354,6 +355,21 @@ function strainVal(strains, t) {
 const ZTOP = 15.5, ZS_TOP = 24, ZS_BOT = -5, DZ = 0.2, Z_UOS = 21;
 const NZ = Math.round((ZS_TOP - ZS_BOT) / DZ) + 1;
 
+// ---------- 1D flow engine ----------
+// The neural programme (swallow timing, deglutitive inhibition, TLESR, peristaltic activation fronts, LES tone,
+// crural drive, breathing, strain) sets the ACTIVE muscle pressure along the tube. Everything else is computed:
+// fluid moves by volume-conserving lubrication flow through a collapsible tube, lumen pressure follows a tube law,
+// reflux happens when gastric pressure opens the EGJ, and the HRM is read by a virtual catheter.
+const ZD_TOP = Z_UOS + 1.2;                       // top of the simulated lumen (hypopharynx just above the UOS)
+const MMHG = 1333.2;                              // dyn/cm² per mmHg
+const RHO_G = 0.736;                              // hydrostatic gradient of water, mmHg per cm (upright only)
+const A_MIN = 0.002;                              // cm²: initial area of a collapsed lumen
+const FLOW = { muLiquid: 20, muSolid: 150, nsub: 2 };   // effective viscosities (poise): wall friction lumped in
+// tube law: transmural elastic pressure e(A) = e0 + k·A (mmHg, A in cm²); gastric wall is more compliant at rest
+// beyond A_sat the wall stiffens (collagen recruitment), as all soft tissue does: e += k2·(A − A_sat)²
+const TUBE = { body: { e0: -2, k: 5.7, tone: 2, sat: 2.5, k2: 8 }, gastric: { e0: -1, k: 3.5, tone: 0, sat: 2.2, k2: 8 } };
+const SIGMA = { gastric: 0.0024, liquid: 0.0019, solid: 0.0008 };   // impedance: conductance per cm² of fluid column (1/Ω), in parallel with the mucosa
+
 function simulate(sc, P) {
   const N = Math.round(sc.dur / DT) + 1;
   const snaps = new Array(N);
@@ -363,15 +379,31 @@ function simulate(sc, P) {
   const relaxFloor = 1 - 0.92 * P.relax;
   const lesTopRest = 1.5 + s, IMP_D = [17, 15, 9, 7, 5, 3], impState = IMP_D.map(() => 2600);
   const failMax = vig >= 0.5 ? 1e9 : (vig / 0.5) * 9;
-  let E = 0, h = 0, gas = sc.post ? 1 : 0, residue = 0;
+  let E = 0, gas = sc.post ? 1 : 0, residue = 0;
   let holdUntil = 0, hold = false, holdStart = 0, afterT = -99, restLogged = true, crusF = 1, tlF = 1;
   const tl = { active: false, started: false, t0: sc.tlesr ? sc.tlesr.t : 1e9, end: sc.tlesr ? sc.tlesr.t + sc.tlesr.dur : 1e9, waveSent: false };
   let waves = [], past = [], lastWaveEnd = -99, pendSec = -1, closingWave = null, prevCF = 0;
   const mkArr = () => new Float32Array(NZ).fill(NaN);
   let venting = false, refluxing = false, straining = false, recept = 0;
-  let colH = P.stasis, colTarget = P.stasis;   // retained fluid column above the LES (stalled boluses settle into it)
-  const sw = sc.swallows.map(ts => ({ ts, logged: false, holdOn: false, waveMade: false, wave: null, deathZ: null, done: false }));
-  const mkSec = (z) => ({ z: Math.min(ZTOP, z), type: 'secondary', cdp: false, trav: 0, amp: 65 * vig * P.amp, speed: 3.5 * P.spd, max: failMax, col: false, arr: mkArr() });
+  const rapid = sc.swallows.length > 1 && sc.swallows.some((x, i) => i && x - sc.swallows[i - 1] < 4);
+  const V0 = rapid ? 2 : 5;                      // ml per swallow (MRS uses 2 ml)
+  const sw = sc.swallows.map(ts => ({ ts, logged: false, holdOn: false, waveMade: false, wave: null, deathZ: null, done: false, injected: 0, entered: 0, entryStart: null, lastIn: -99 }));
+  const mkSec = (z) => ({ z: Math.min(Z_UOS - 1, z), type: 'secondary', cdp: false, trav: 0, amp: 65 * vig * P.amp, speed: 3.5 * P.spd, max: failMax, col: false, arr: mkArr() });
+
+  // ---- flow state on the HRM grid (k = 0 at the top) ----
+  const kTop = Math.ceil((ZS_TOP - ZD_TOP) / DZ - 1e-9);
+  const A = new Float64Array(NZ).fill(A_MIN), C = new Float64Array(NZ);   // area (cm²) and gastric-content fraction
+  const pc = new Float64Array(NZ), ps = new Float64Array(NZ), aS = new Float64Array(NZ), k2 = new Float64Array(NZ), act = new Float64Array(NZ), ext = new Float64Array(NZ), gw = new Float64Array(NZ);
+  const lo = new Float64Array(NZ), di = new Float64Array(NZ), up = new Float64Array(NZ), rh = new Float64Array(NZ), gF = new Float64Array(NZ + 1), bF = new Float64Array(NZ + 1);
+  const An = new Float64Array(NZ), src = new Float64Array(NZ), src2 = new Float64Array(NZ), Qf = new Float64Array(NZ + 1), Mbuf = new Float64Array(NZ);
+  let nFail = 0;
+  let meal = 0, pool = sc.post ? 10 : 6, kBot = -1, stomachBolus = 0, inflowNow = 0;
+  const mu = solid ? FLOW.muSolid : FLOW.muLiquid;
+  const dilK = 1 - 1.4 * (P.dilate || 0);        // a dilated, atonic body is more compliant
+  const zOf = k => ZS_TOP - k * DZ;
+  const sig = x => 1 / (1 + Math.exp(-x));
+  let V_in = 0;                                   // bookkeeping for the conservation check
+  let lesBotPrev = null, lastStrain = -99;
 
   for (let i = 0; i < N; i++) {
     const t = i * DT;
@@ -383,14 +415,13 @@ function simulate(sc, P) {
     if (tau < 1.2) insp = 0;
     const hz = -0.3 * insp;
 
-    // swallow programme
+    // swallow programme (neural)
     for (const r of sw) {
       const u = t - r.ts;
       if (u >= 0 && !r.logged) {
         r.logged = true; log(t, 'swallow');
-        // every swallow fires the proximal (striated) contraction from the UOS, even when distal peristalsis is then inhibited
         const pw = { arr: mkArr(), amp: 90 * (solid ? 1.3 : 1), type: 'primary', endT: t + 4 };
-        for (let k = 0; k < NZ; k++) { const z = ZS_TOP - k * DZ; if (z <= Z_UOS && z > ZTOP) pw.arr[k] = r.ts + 0.6 + (Z_UOS - z) / 3.9; }
+        for (let k = 0; k < NZ; k++) { const z = zOf(k); if (z <= Z_UOS && z > ZTOP) pw.arr[k] = r.ts + 0.6 + (Z_UOS - z) / 3.9; }
         past.push(pw);
       }
       if (u >= 0.6 && !r.holdOn) {
@@ -408,10 +439,11 @@ function simulate(sc, P) {
         }
       }
     }
-    // TLESR programme
+    // top of any refluxate (secondary peristalsis starts just above it, in striated or smooth muscle)
+    const reflTop = () => { let zt = -2 + s + E + hz + 3; for (let k = kTop; k < NZ; k++) if (A[k] > 0.15 && C[k] > 0.3) { zt = Math.max(zt, zOf(k)); break; } return zt; };
     if (t >= tl.t0 && !tl.started) { tl.started = true; tl.active = true; log(t, 'tlesr'); }
     if (tl.active && t >= tl.end && !tl.waveSent && waves.length === 0) {
-      tl.waveSent = true; waves.push(mkSec(-2 + s + E + hz + h + 1.5)); log(t, 'secondary');
+      tl.waveSent = true; waves.push(mkSec(reflTop() + 1.5)); log(t, 'secondary');
     }
 
     if (holdUntil && t >= holdUntil) { holdUntil = 0; if (!waves.some(q => q.type === 'primary')) hold = false; }
@@ -421,27 +453,28 @@ function simulate(sc, P) {
     E += (target - E) * Math.min(1, DT / 0.7);
     const lesBot = -2 + s + E + hz, lesTop = 1.5 + s + E + hz;
 
-    // waves
+    // refluxate in the oesophagus, from the previous step (used by the programme: clearance and distension)
+    let Vrefl = 0;
+    for (let k = kTop; k < NZ; k++) if (zOf(k) > lesTop && A[k] > 0) Vrefl += A[k] * C[k] * DZ;
+
+    // peristaltic activation fronts (neural): they set where the circular muscle contracts
     for (const w of waves) {
       if (!w.cdp && w.z <= lesTop + 2.5) { w.cdp = true; if (w.type === 'primary') log(t, 'cdp'); }
-      const dc = clamp((w.z - (lesTop + 1.0)) / 4.0, 0, 1), v = lerp(1.6, w.speed, dc * dc * (3 - 2 * dc));   // smooth deceleration towards the CDP
+      const dc = clamp((w.z - (lesTop + 1.0)) / 4.0, 0, 1), v = lerp(1.6, w.speed, dc * dc * (3 - 2 * dc));
       const zOld = w.z;
       w.z -= v * DT; w.trav += v * DT;
       if (!w.dead) {
         const k0 = Math.max(0, Math.ceil((ZS_TOP - zOld) / DZ)), k1 = Math.min(NZ - 1, Math.floor((ZS_TOP - w.z) / DZ));
         for (let k = k0; k <= k1; k++) if (Number.isNaN(w.arr[k])) w.arr[k] = t;
       }
-      if (h > 0.3 && w.z < lesBot + h + 0.6) w.col = true;
+      if (Vrefl > 0.5) w.col = true;
       if (w.trav > w.max) w.dead = true;
-      else {
-        h = Math.min(h, Math.max(0, w.z - lesBot - 0.4));
-        if (w.z <= lesTop) w.done = true;
-      }
+      else if (w.z <= lesTop) w.done = true;
     }
     waves = waves.filter(w => {
       if (!(w.done || w.dead)) return true;
       lastWaveEnd = t; w.endT = t; past.push(w);
-      if (w.done) { closingWave = w; prevCF = w.z; afterT = t; restLogged = false; if (w.col) { residue = 1; log(t, 'cleared'); } h = 0; }
+      if (w.done) { closingWave = w; prevCF = w.z; afterT = t; restLogged = false; if (w.col) { residue = 1; log(t, 'cleared'); } }
       if (w.dead) log(t, 'dead');
       if (w.type === 'primary') {
         if (w.done) w.sw.closeT = t;
@@ -454,29 +487,27 @@ function simulate(sc, P) {
       if (tl.active) { tl.active = false; if (w.dead) { afterT = t; restLogged = false; } }
       return false;
     });
+    // distension-triggered secondary peristalsis: refluxate volume, not a rule about height
+    if (!tl.active && !hold && Vrefl > 3 && waves.length === 0 && pendSec < 0 && t - lastWaveEnd > 3) pendSec = t + 0.8;
+    if (pendSec > 0 && t >= pendSec) {
+      pendSec = -1;
+      waves.push(mkSec(reflTop() + 1.5)); log(t, 'distension');
+    }
 
-    // distension-triggered secondary peristalsis
-    if (!tl.active && !hold && h > 3 && waves.length === 0 && pendSec < 0 && t - lastWaveEnd > 3) pendSec = t + 0.8;
-    if (pendSec > 0 && t >= pendSec) { pendSec = -1; waves.push(mkSec(lesBot + h + 1.5)); log(t, 'distension'); }
-
-    // pressures
+    // ---- boundary pressures ----
     const sv = strainVal(sc.strains, t);
     if (sv > 10 && !straining) { straining = true; log(t, 'strainHeld'); }
     if (sv < 5) straining = false;
+    if (sv > 10) lastStrain = t;
     const Pabd = 5 + 3 * insp + sv;
     recept += ((hold ? 2 : 0) - recept) * Math.min(1, DT / 0.6);
     const Pg = Pabd + 2 + (sc.post ? 3 : 0) - recept;
-    const Pth = -3 - 9 * insp;
-    let Poes = Pth + 1.2 * h;
-    if (hold) Poes = Math.max(Poes, 12);
+    const Pth = -3 - 6 * insp + 0.5 * sv;           // coughs and strains are only partly transmitted to the thorax
     const holdF = hold ? Math.max(relaxFloor, 1 - (t - holdStart) / 1.2) : 1;
     const a = t - afterT;
     const ease = x => x * x * (3 - 2 * x);
     const afterF = a < 0 ? 1 : a < 1.5 ? lerp(0.08, 1.6, ease(a / 1.5)) : a < 7.5 ? 1.6 - 0.6 * (a - 1.5) / 6 : 1;
-    // closing front: the contraction continues down through the LES after the wave arrives, squeezing out what is left
     const closeFront = (a >= 0 && a < 1.5) ? lesTop - (lesTop - lesBot) * ease(a / 1.5) : -99;
-    // on the HRM the peristaltic contraction carries straight on into the LES after-contraction: keep recording its
-    // arrival times as the closing ring moves down through the sphincter, so there is no join between the two
     if (closeFront > -50 && closingWave && closingWave.arr) {
       const k0 = Math.max(0, Math.ceil((ZS_TOP - prevCF) / DZ)), k1 = Math.min(NZ - 1, Math.floor((ZS_TOP - closeFront) / DZ));
       for (let k = k0; k <= k1; k++) if (Number.isNaN(closingWave.arr[k])) closingWave.arr[k] = t;
@@ -487,114 +518,239 @@ function simulate(sc, P) {
     const lesP = closeFront > -50 ? Math.max(P.les * lesF, P.les * 1.4 * (0.6 + 0.4 * ease(Math.min(1, a / 0.35)))) : P.les * lesF;
     const overlap = clamp(1 - s / 2.5, 0, 1);
     const crusRaw = (P.crus * insp + 0.6 * sv * (P.crus / 15)) * crusF;
-    const crusP = crusRaw * overlap;
+    const crusTot = (crusRaw + 0.4 * P.crus * crusF) * overlap * overlap;   // a widened hiatus pinches a compliant sac without occluding it
     const kabd = Math.min(1, clamp((hz - lesBot) / 3.5, 0, 1) / 0.5714);
-    const abdP = kabd * (Pabd - 5);
     const geomA = clamp(1 - (s + E) / 2, 0, 1);
     const flap = geomA * (0.3 + 0.7 * Math.min(1, lesF));
     const his = 140 - 80 * geomA * (0.4 + 0.6 * Math.min(1, lesF)) - (sc.post ? 10 : 0) * geomA;
     const flapP = 8 * P.flapK * flap * clamp((Pg - 3) / 7, 0, 1.5);
-    const barrier = lesP + crusP + abdP + flapP;
-    const grad = Pg - Poes, ex = grad - barrier;
+    let Puos = venting ? 6 : (Vrefl > 2 ? 95 : 70) + 6 * insp;
+    if (tau < 1.6) Puos = tau < 0.15 ? lerp(70, 2, tau / 0.15) : tau < 0.55 ? 2 : tau < 0.85 ? lerp(2, 150, (tau - 0.55) / 0.3) : lerp(150, 70, (tau - 0.85) / 0.75);
 
-    let ventNow = false;
-    if (ex > 0) {
-      if (gas > 0.05) { gas -= 0.6 * DT; ventNow = true; h += 0.01 * ex * DT; }
-      else {
-        h += 0.06 * ex * DT;
-        if (!refluxing) { refluxing = true; log(t, tl.active ? 'liquid' : (sv > 10 ? 'strainReflux' : 'free')); }
-      }
-      h = Math.min(h, 13);
-    } else {
-      refluxing = false;
-      if (barrier < 4) h = Math.max(0, h - 0.4 * DT);
-      if (h > 0 && h < 1) h = Math.max(0, h - 0.15 * DT);
+    // ---- active pressure along the tube (the only prescribed mechanics) ----
+    past = past.filter(w => t - w.endT < 8);
+    const allW = waves.concat(past);
+    const lesC = (lesBot + lesTop) / 2;
+    const pulse = d => d < 0 ? 0 : d < 0.9 ? Math.sin(Math.PI / 2 * d / 0.9) ** 2 : Math.exp(-(((d - 0.9) / 1.7) ** 2));
+    const pulseFast = d => d < 0 ? 0 : d < 0.15 ? Math.sin(Math.PI / 2 * d / 0.15) ** 2 : Math.exp(-(((d - 0.15) / 0.3) ** 2));
+    const shape = (z, type) => {
+      const distal = lerp(0.6, 1.15, clamp((15 - z) / 11, 0, 1));
+      const sm = clamp((z - 15.8) / 1.6, 0, 1), striated = type === 'primary' ? 0.85 : 0.6;
+      const base = lerp(distal, striated, sm * sm * (3 - 2 * sm));
+      return base * (1 - 0.72 * Math.exp(-(((z - 15.7) / 0.9) ** 2)));
+    };
+    // type II achalasia: simultaneous longitudinal shortening and weak circular contraction stiffen the whole body
+    const pressEnv = (P.pressurize && tau > 1.2 && tau < 9) ? Math.sin(Math.PI * clamp((tau - 1.2) / 7.8, 0, 1)) ** 0.7 : 0;
+    const zB = Math.min(lesBot, hz) - 0.6;        // the gastric reservoir starts here (cardia, or below a hernia sac)
+    let kB = Math.min(NZ - 1, Math.floor((ZS_TOP - zB) / DZ));
+    for (let k = kTop; k <= kB; k++) {
+      const z = zOf(k);
+      const g = sig((lesBot - 0.15 - z) / 0.15);   // 1 = gastric wall (cardia, hernia sac), 0 = oesophagus
+      gw[k] = g;
+      ext[k] = lerp(Pth, Pabd, sig((hz - z) / 0.25));
+      let p = 0;
+      if (z > Z_UOS - 0.2 && tau < 3) p += 170 * clamp((z - Z_UOS + 0.2) / 0.6, 0, 1) * pulseFast(tau - (0.12 + (ZS_TOP - z) / 14));   // pharyngeal stripping, down into the UOS
+      p += Puos * Math.exp(-(((z - Z_UOS) / 0.6) ** 2));
+      p += lesP * Math.exp(-(((z - lesC) / 0.85) ** 2));
+      p += crusTot * Math.exp(-(((z - hz) / 0.6) ** 2));
+      p += flapP * Math.exp(-(((z - (lesBot + 0.3)) / 0.5) ** 2));
+      const lesW = Math.exp(-(((z - lesC) / 1.6) ** 2));
+      const dur = lerp(1, 0.55, clamp((z - 15.8) / 1.6, 0, 1)) * (1 + 0.9 * lesW) * (z < 15.5 ? P.durK : 1);
+      const ampK = 1 - 0.45 * lesW;
+      for (const w of allW) { const ta = w.arr[k]; if (!Number.isNaN(ta)) p += 1.15 * ampK * w.amp * shape(z, w.type) * pulse((t - ta) / dur); }
+      const tb = TUBE.body, tg = TUBE.gastric;
+      const inBody = (1 - g) * (z > lesTop + 0.3 && z < Z_UOS - 1.5 ? 1 : 0);
+      const stiff = 1 + 2 * pressEnv * inBody;   // longitudinal shortening stiffens the fluid-filled body
+      act[k] = p + lerp(tb.tone, tg.tone, g) + 28 * pressEnv * inBody;   // weak simultaneous circular contraction
+      const kk = lerp(tb.k * (z > lesTop ? dilK : 1), tg.k, g) * stiff;
+      pc[k] = ext[k] + act[k] + lerp(tb.e0, tg.e0, g);   // p = pc + ps·A (+ stiffening term)
+      ps[k] = kk; aS[k] = lerp(tb.sat * (1 + 1.5 * (P.dilate || 0)), tg.sat, g); k2[k] = lerp(tb.k2, tg.k2, g) * stiff;
     }
+
+    const pAt = (j, a) => { const x = a - aS[j]; return pc[j] + ps[j] * a + (x > 0 ? k2[j] * x * x : 0); };
+    const aEq = (j, p) => { let a = clamp((p - pc[j]) / ps[j], A_MIN, 6); for (let n = 0; n < 8; n++) { const x = a - aS[j], f = pAt(j, a) - p, d = ps[j] + (x > 0 ? 2 * k2[j] * x : 0); a = clamp(a - f / d, A_MIN, 6); } return a; };
+    // ---- moving gastric boundary: cells leaving the domain return to the stomach, cells joining it fill from it ----
+    if (i === 0) {
+      kBot = kB;
+      for (let k = kTop; k <= kBot; k++) if (gw[k] > 0.5) { A[k] = aEq(k, Pg); C[k] = 1; meal -= A[k] * DZ; }
+      if (P.stasis > 0.05) {   // retained fluid above a non-relaxing LES (achalasia)
+        for (let k = kTop; k <= kBot; k++) { const z = zOf(k); if (z > lesTop && z < lesTop + P.stasis) { A[k] = 1.6 * (1 + 1.5 * (P.dilate || 0)); C[k] = 0; } }
+      }
+    } else if (kB !== kBot) {
+      if (kB < kBot) for (let k = kB + 1; k <= kBot; k++) { meal += A[k] * DZ; A[k] = A_MIN; C[k] = 0; }
+      else for (let k = kBot + 1; k <= kB; k++) { A[k] = aEq(k, Pg); C[k] = 1; meal -= A[k] * DZ; }
+      kBot = kB;
+    }
+
+    // the wall carries the lumen contents with it: below the LES the tissue moves rigidly with the EGJ, above it the
+    // body stretches uniformly up to the (fixed) UOS. Conservative upwind transport of area and content.
+    if (lesBotPrev != null && i > 0) {
+      const vL = (lesBot - lesBotPrev) / DT;
+      if (Math.abs(vL) > 1e-4) {
+        const F = Qf, Mv = Mbuf;
+        for (let k = kTop; k <= kBot; k++) Mv[k] = A[k] * C[k];
+        for (let k = kTop + 1; k <= kBot; k++) {
+          const zf = zOf(k) + DZ / 2, v = vL * (zf > lesTop ? clamp((Z_UOS - zf) / (Z_UOS - lesTop), 0, 1) : 1);
+          F[k] = v * DT / DZ;   // + = upward (from k into k-1)
+        }
+        for (let k = kTop + 1; k <= kBot; k++) {
+          const f = F[k], src = f > 0 ? k : k - 1, dst = f > 0 ? k - 1 : k, frac = Math.min(0.9, Math.abs(f));
+          const dA = A[src] * frac, dM = Mv[src] * frac;
+          A[src] -= dA; Mv[src] -= dM; A[dst] += dA; Mv[dst] += dM;
+        }
+        for (let k = kTop; k <= kBot; k++) C[k] = A[k] > 1e-9 ? clamp(Mv[k] / A[k], 0, 1) : C[k];
+      }
+    }
+    lesBotPrev = lesBot;
+
+    // gas goes first: while the fundic gas bubble lasts, an open EGJ vents gas (a belch) rather than liquid
+    let closeMax = -1e9, kMax = kBot;
+    for (let k = kTop; k <= kBot; k++) { const z = zOf(k); if (z < lesBot - 0.6 || z > lesTop + 0.6) continue; const cp = pc[k] + ps[k] * A_MIN; if (cp > closeMax) { closeMax = cp; kMax = k; } }
+    if (closeMax < -1e8) closeMax = Pth;
+    const exNow = Pg - closeMax;
+    let ventNow = false;
+    if (exNow > 0 && gas > 0.05) { gas -= 0.6 * DT; ventNow = true; }
     if (ventNow && !venting) log(t, 'vent');
     venting = ventNow;
-    if (h > 0.5) residue = 1; else residue = Math.max(0, residue - 0.02 * DT);
 
-    // bolus segments
-    const segs = [];
+    // pharyngeal bolus delivery: the tongue and pharyngeal constrictors push the swallowed volume into the hypopharynx
+    src.fill(0);
     for (const r of sw) {
       const u = t - r.ts;
-      r.enteringNow = false;
-      const closed = r.done && r.deathZ == null && t - (r.closeT ?? -99) >= 1.6;
-      if (closed && r.entryStart == null) { r.entryStart = t; r.entryEnd = t; r.frac = 1; }
-      if (r.entryStart != null && r.entryEnd == null && (closed || u > 14)) { r.entryEnd = t; r.frac = r.deathZ == null ? 1 : (r.frac || 0); }
-      if (u >= 0 && u < 2.0) {   // proximal (striated) oesophagus: bolus enters through the relaxed UOS, stripped down by the proximal contraction
-        const tailP = u < 0.6 ? Z_UOS + 2.2 - 3.7 * u : Z_UOS - 3.9 * (u - 0.6);
-        const headP = Z_UOS + 1.5 - 8 * u;
-        const lo = Math.max(ZTOP - 0.02, headP), hi = Math.min(tailP, Z_UOS + 2.2);
-        if (hi > lo + 0.05) segs.push({ lo, hi, r: solid ? 1.0 : 0.85, kind: solid ? 'solid' : 'liquid', prox: true });
+      if (u >= 0.03 && u < 0.21 && r.injected < V0) {   // tongue thrust: delivered before the pharyngeal stripping wave
+        const q = Math.min(V0 - r.injected, V0 / 0.16 * DT);
+        r.injected += q; V_in += q;
+        for (let k = kTop; k < kTop + 3; k++) src[k] += q / (3 * DZ * DT);
       }
-      if (u < 1.0 || u > 14) continue;
-      const L = solid ? 2.4 : 3.6, rad = solid ? 1.05 : 0.95, kind = solid ? 'solid' : 'liquid';
-      if (r.done && r.deathZ == null) {
-        const floor2 = lesBot - 0.4;
-        if (closeFront > -50 && t - (r.closeT ?? -99) < 1.6 && closeFront > floor2 + 0.05) {
-          segs.push({ lo: floor2, hi: closeFront, r: rad * 0.85, kind });
-          if (r.entryStart == null) { r.entryStart = t; r.Lent = Math.max(0.5, closeFront - floor2); }
-          r.enteringNow = true;
-          r.frac = clamp(1 - (closeFront - floor2) / (r.Lent || 1), r.frac || 0, 0.98);
-        }
-        continue;
-      }
-      const waveNear = waves.some(w => w.z < lesTop + 3.5);
-      const passes = P.les * lesF < (waveNear ? 30 : 12);
-      const floor = passes ? lesBot - 0.4 : lesTop;
-      if (r.merged) continue;
-      if (r.deathZ != null && !passes) {
-        const level = lesTop + colH, tailS = Math.max(level + L * 0.8, r.deathZ - 4 * (t - (r.deathT ?? t)));
-        if (tailS <= level + L * 0.8 + 0.02) { r.merged = true; colTarget += L * 0.8; continue; }
-        segs.push({ lo: Math.max(level - 0.2, tailS - L), hi: tailS, r: rad * 0.9, kind, retained: true, pushed: false, stalled: true });
-        continue;
-      }
-      let head, tail;
-      if (upright && !solid && r.deathZ == null) {
-        head = ZTOP - 12 * (u - 1.0); tail = head + L;
-        if (r.wave && lesF < 0.4) segs.push({ lo: lesBot - 0.4, hi: Math.min(ZTOP, r.wave.z), r: 0.2, kind });
-      } else {
-        if (r.deathZ != null) tail = r.deathZ;
-        else if (r.wave) tail = r.wave.z;
-        else if (u < 2.0) tail = ZTOP;
-        else tail = ZTOP - 3 * (u - 2.0);
-        const front = ZTOP - (solid ? 4.6 : 6.5) * (u - 1.0);
-        head = u < 2.0 ? Math.min(tail - 0.3, front) : Math.min(tail - L, front);
-      }
-      const rawHead = head;
-      head = Math.max(head, floor); tail = Math.min(tail, ZTOP);
-      if (floor < lesBot && rawHead < floor - 0.01) {
-        if (tail > head + 0.05) {
-          if (r.entryStart == null) { r.entryStart = t; r.Lent = Math.max(0.5, tail - floor); }
-          r.enteringNow = true;
-          r.frac = clamp(1 - (tail - floor) / r.Lent, r.frac || 0, 1);
-        } else if (r.entryStart != null && r.entryEnd == null) { r.entryEnd = t; r.frac = 1; }
-      }
-      if (tail > head + 0.05) segs.push({ lo: head, hi: tail, r: rad * clamp(Math.sqrt(L / (tail - head)), 0.45, 1), kind, retained: !passes, pushed: waveNear, stalled: r.deathZ != null });
-    }
-    if (P.les * lesF < 12) colTarget = Math.max(0, colTarget - 1.2 * DT);
-    colH += (colTarget - colH) * Math.min(1, DT / 0.6);
-    const drops = [];
-    for (const r of sw) {
-      if (r.entryStart == null) continue;
-      const age = r.entryEnd == null ? 0 : t - r.entryEnd;
-      if (age > 10) continue;
-      drops.push({ frac: r.frac || 0, age, since: t - r.entryStart, streaming: r.enteringNow, kind: solid ? 'solid' : 'liquid' });
     }
 
-    // state
+    // ---- implicit, volume-conserving lubrication flow: A_t + Q_z = 0 with Q = κ·A_up·A_dn·(p_up − p_dn + ρgΔz),
+    //      κ = 1/(8πμ·Δz) (Poiseuille with the geometric-mean area at each face). Newton on u = ln A keeps every area
+    //      positive, so contraction can squeeze a segment empty but never below empty; sub-steps halve if Newton stalls.
+    const gh = upright ? RHO_G * DZ : 0, kap = MMHG / (8 * Math.PI * mu * DZ), A_ST = 1.4;
+    let inflowStep = 0, toStomachBolus = 0, toStomachGastric = 0;
+    const blockIn = venting || pool <= 0.2;
+    const pr = j => { const x = A[j] - aS[j]; return pc[j] + ps[j] * A[j] + (x > 0 ? k2[j] * x * x : 0); };
+    const dpr = j => { const x = A[j] - aS[j]; return ps[j] + (x > 0 ? 2 * k2[j] * x : 0); };
+    const step = (dt) => {
+      for (let k = kTop; k <= kBot; k++) An[k] = A[k];
+      const cdz = dt / DZ;
+      // residual R_k = A_k − A_k^n − dt·src − (dt/Δz)(Q_in − Q_out); with jac = true also the tridiagonal Jacobian in u = ln A
+      let l2 = 0;
+      const resid = (jac) => {
+        let maxR = 0; l2 = 0;
+        for (let k = kTop + 1; k <= kBot; k++) {
+          const dp = pr(k - 1) - pr(k) + gh;
+          // Poiseuille conductance taken upwind (A_src²): an empty segment cannot give fluid; a collapsed one
+          // receives it as soon as the pressure behind exceeds its closing pressure
+          const fwd = dp >= 0, a1 = A[k - 1], a2 = A[k];
+          const G = fwd ? a1 * a1 : a2 * a2;
+          Qf[k] = kap * G * dp;
+          if (jac) {
+            const dG1 = fwd ? 2 * a1 : 0, dG2 = fwd ? 0 : 2 * a2;
+            gF[k] = kap * (dG1 * dp + G * dpr(k - 1));      // ∂Q/∂A_{k-1}
+            bF[k] = kap * (dG2 * dp - G * dpr(k));          // ∂Q/∂A_k
+          }
+        }
+        const dpB = pr(kBot) - Pg + gh;
+        const GB = dpB >= 0 ? A[kBot] * A[kBot] : A_ST * A_ST;
+        let qB = kap * GB * dpB, dqB = (dpB >= 0 ? kap * 2 * A[kBot] * dpB : 0) + kap * GB * dpr(kBot);
+        if (dpB < 0 && blockIn) { qB = 0; dqB = 0; }
+        Qf[kBot + 1] = qB;
+        for (let k = kTop; k <= kBot; k++) {
+          const qin = k > kTop ? Qf[k] : 0, qout = k < kBot ? Qf[k + 1] : qB;
+          const R = A[k] - An[k] - dt * src[k] - cdz * (qin - qout);
+          rh[k] = -R; l2 += R * R; if (Math.abs(R) > maxR) maxR = Math.abs(R);
+          if (jac) {
+            const dIn_dk = k > kTop ? bF[k] : 0, dOut_dk = k < kBot ? gF[k + 1] : dqB;
+            di[k] = (1 - cdz * (dIn_dk - dOut_dk)) * A[k];
+            lo[k] = k > kTop ? -cdz * gF[k] * A[k - 1] : 0;
+            up[k] = k < kBot ? cdz * bF[k + 1] * A[k + 1] : 0;
+          }
+        }
+        return maxR;
+      };
+      for (let k = kTop; k <= kBot; k++) A[k] = An[k] + dt * src[k];   // the delivered volume is the starting guess
+      let ok = false, maxR = resid(true);
+      for (let it = 0; it < 30; it++) {
+        if (maxR < 2e-7) { ok = true; break; }
+        for (let k = kTop + 1; k <= kBot; k++) { const m = lo[k] / di[k - 1]; di[k] -= m * up[k - 1]; rh[k] -= m * rh[k - 1]; }
+        src2[kBot] = rh[kBot] / di[kBot];
+        for (let k = kBot - 1; k >= kTop; k--) src2[k] = (rh[k] - up[k] * src2[k + 1]) / di[k];
+        for (let k = kTop; k <= kBot; k++) { const du = src2[k]; Mbuf[k] = A[k]; src2[k] = isFinite(du) ? clamp(du, -5, 5) : 0; }
+        // backtracking line search on the largest residual
+        let lam = 1, accepted = false, mr = maxR;
+        const l20 = l2;
+        for (let ls = 0; ls < 10; ls++) {
+          for (let k = kTop; k <= kBot; k++) A[k] = Math.max(1e-6, Mbuf[k] * Math.exp(lam * src2[k]));
+          mr = resid(false);
+          if (l2 < l20 * (1 - 1e-4 * lam) || mr < 2e-7) { accepted = true; break; }
+          lam *= 0.5;
+        }
+        if (!accepted) { for (let k = kTop; k <= kBot; k++) A[k] = Mbuf[k]; break; }
+        maxR = resid(true);
+      }
+      if (!ok && maxR < 1e-5) ok = true;
+      if (!ok) { for (let k = kTop; k <= kBot; k++) A[k] = An[k]; return false; }
+      // final fluxes (consistent with the converged areas), then upwind transport of the gastric-content fraction
+      for (let k = kTop + 1; k <= kBot; k++) { const dp = pr(k - 1) - pr(k) + gh; Qf[k] = kap * (dp >= 0 ? A[k - 1] * A[k - 1] : A[k] * A[k]) * dp; }
+      { const dpB = pr(kBot) - Pg + gh; Qf[kBot + 1] = (dpB < 0 && blockIn) ? 0 : kap * (dpB >= 0 ? A[kBot] * A[kBot] : A_ST * A_ST) * dpB; }
+      const M = Mbuf;
+      for (let k = kTop; k <= kBot; k++) M[k] = C[k] * An[k] * DZ;
+      for (let k = kTop + 1; k <= kBot + 1; k++) {
+        const q = Qf[k] * dt;
+        const cu = q > 0 ? C[k - 1] : (k <= kBot ? C[k] : 1);
+        M[k - 1] -= q * cu;
+        if (k <= kBot) M[k] += q * cu;
+        else if (q > 0) { if (cu > 0.5) toStomachGastric += q; else toStomachBolus += q; }
+        else inflowStep += -q;
+      }
+      for (let k = kTop; k <= kBot; k++) C[k] = clamp(M[k] / (A[k] * DZ), 0, 1);
+      return true;
+    };
+    const run = (dt, depth) => { if (step(dt)) return; if (depth >= 6) { nFail++; return; } run(dt / 2, depth + 1); run(dt / 2, depth + 1); };
+    for (let sub = 0; sub < FLOW.nsub; sub++) run(DT / FLOW.nsub, 0);
+    pool += toStomachGastric - inflowStep; meal += toStomachBolus;
+    stomachBolus += toStomachBolus;
+    inflowNow = inflowStep / DT;
+    // credit swallowed volume entering the stomach to the swallow that delivered it
+    if (toStomachBolus > 0 && latest) {
+      if (latest.entryStart == null) latest.entryStart = t;
+      latest.entered += toStomachBolus; latest.lastIn = t;
+    }
+
+    // ---- read-outs ----
+    let VreflNow = 0, zRef = lesBot;
+    for (let k = kBot; k >= kTop; k--) { const z = zOf(k); if (z <= lesBot) continue; if (A[k] > 0.12 && C[k] > 0.5) { if (z - zRef < 0.5) zRef = z; } if (z > lesTop) VreflNow += A[k] * C[k] * DZ; }
+    const h = zRef > lesBot ? zRef - lesBot : 0;
+    if (VreflNow > 0.3 && !venting) { if (!refluxing) { refluxing = true; log(t, tl.active ? 'liquid' : (t - lastStrain < 2 ? 'strainReflux' : 'free')); } }
+    else if (VreflNow < 0.1) refluxing = false;
+    if (h > 0.5) residue = 1; else residue = Math.max(0, residue - 0.02 * DT);
+
+    // barrier decomposition at the strongest point of the EGJ (closing pressure = what gastric pressure must exceed)
+    const zM = zOf(kMax);
+    const lesPart = lesP * Math.exp(-(((zM - lesC) / 0.85) ** 2));
+    const crusP = crusTot * Math.exp(-(((zM - hz) / 0.6) ** 2));
+    const flapPart = flapP * Math.exp(-(((zM - (lesBot + 0.3)) / 0.5) ** 2));
+    const abdP = ext[kMax] - Pth;
+    const kDist = Math.min(kBot, Math.max(kTop, Math.round((ZS_TOP - (lesTop + 2)) / DZ)));
+    const Poes = A[kDist] > 0.2 ? pAt(kDist, A[kDist]) : Pth;
+    const barrier = closeMax - Pth;
+    const grad = Pg - Poes;
+    const exS = Pg - closeMax;
+
+    // state, as before
     let state;
     const secAlive = waves.some(w => w.type === 'secondary');
     if (secAlive) state = 'clear';
-    else if (tl.active) state = (h > 0.3 || venting) ? 'reflux' : 'tlesr';
+    else if (tl.active) state = (VreflNow > 0.3 || venting) ? 'reflux' : 'tlesr';
     else if (hold) state = 'swallow';
-    else if (ex > 0 || h > 0.3) state = 'reflux';
+    else if (VreflNow > 0.3) state = 'reflux';
     else if (afterT > 0 && t - afterT < 7) state = 'after';
     else state = 'rest';
     let uos = 'Closed';
     if (venting) uos = 'Relaxed: gas venting (belch)';
-    else if (h > 2) uos = 'Contracted harder: liquid in oesophagus';
+    else if (VreflNow > 2) uos = 'Contracted harder: liquid in oesophagus';
     else if (tau < 1) uos = 'Relaxed: swallow';
     let body = 'Quiescent';
     if (tl.active && !secAlive) body = 'Inhibited (TLESR)';
@@ -603,88 +759,51 @@ function simulate(sc, P) {
     else if (hold) body = 'Deglutitive inhibition';
     else if (pendSec > 0) body = 'Distension sensed';
 
-    // synthetic HRM column: pharynx and UOS at the top, peristalsis as a contraction pulse at each level, LES/crus bands, stomach
-    past = past.filter(w => t - w.endT < 8);
-    const col = new Float32Array(NZ), bp = new Uint8Array(NZ);
-    const lesC = (lesBot + lesTop) / 2;
-    const pulse = d => d < 0 ? 0 : d < 0.9 ? Math.sin(Math.PI / 2 * d / 0.9) ** 2 : Math.exp(-(((d - 0.9) / 1.7) ** 2));
-    const pulseFast = d => d < 0 ? 0 : d < 0.15 ? Math.sin(Math.PI / 2 * d / 0.15) ** 2 : Math.exp(-(((d - 0.15) / 0.3) ** 2));
-    const shape = (z, type) => {
-      // striated proximal segment, a low-amplitude transition zone, then smooth-muscle segments growing distally
-      const distal = lerp(0.6, 1.15, clamp((15 - z) / 11, 0, 1));
-      const sm = clamp((z - 15.8) / 1.6, 0, 1), striated = type === 'primary' ? 0.85 : 0;
-      const base = lerp(distal, striated, sm * sm * (3 - 2 * sm));
-      return base * (1 - 0.85 * Math.exp(-(((z - 15.7) / 1.1) ** 2)));
-    };
-    let Puos = venting ? 6 : (h > 2 ? 95 : 70) + 6 * insp;
-    if (tau < 1.6) Puos = tau < 0.15 ? lerp(70, 2, tau / 0.15) : tau < 0.55 ? 2 : tau < 0.85 ? lerp(2, 150, (tau - 0.55) / 0.3) : lerp(150, 70, (tau - 0.85) / 0.75);
-    const allW = waves.concat(past);
-    // intrathoracic baseline (coughs and strains are transmitted to the thorax too, so they appear on every channel);
-    // during a TLESR or free reflux the oesophagus equalises with the stomach: the common cavity
-    const cav = tl.active ? clamp((1 - tlF) * 1.3, 0, 1) * (1 - P.tlBlock) : (ex > 0 && h > 0.3 ? clamp(ex / 8, 0, 1) : 0);
-    const PoesB = lerp(-2 - 5 * insp + 0.8 * sv, Pg, 0.9 * cav);
-    // common cavity: the oesophagus below any clearing wave equalises towards gastric pressure as refluxate fills it
-    const zCav = waves.reduce((mn, w) => Math.min(mn, w.z), 99);
+    // virtual catheter: fluid pressure where the lumen is open, wall contact pressure where it is collapsed
+    const col = new Float32Array(NZ), bp = new Uint8Array(NZ), Ar = new Float32Array(NZ), Cg = new Float32Array(NZ);
     for (let k = 0; k < NZ; k++) {
-      const z = ZS_TOP - k * DZ;
-      const wB = 1 / (1 + Math.exp(-(z - (lesTop - 0.3)) / 0.4));
-      const zCol = lesBot + h;
-      const PoesH = PoesB + (z < zCav ? 1.2 * h * (z <= zCol ? 1 : Math.exp(-(((z - zCol) / 4) ** 2))) : 0);
-      let p = z > Z_UOS + 0.8 ? 0 : PoesH * wB + Pg * (1 - wB);
-      p += Puos * Math.exp(-(((z - Z_UOS) / 0.6) ** 2));
-      if (z > Z_UOS + 0.4 && tau < 3) p += 170 * pulseFast(tau - (0.12 + (ZS_TOP - z) / 14));
-      p += lesP * Math.exp(-(((z - lesC) / 0.85) ** 2));
-      p += (crusRaw + 0.4 * P.crus * crusF) * Math.exp(-(((z - hz) / 0.6) ** 2));   // crus: tonic plus inspiratory
-      if (P.pressurize && tau > 1.2 && tau < 9 && z > lesTop && z < Z_UOS - 1.5) {
-        const env = Math.sin(Math.PI * clamp((tau - 1.2) / 7.8, 0, 1)) ** 0.7;
-        const zt = Math.min(1, (z - lesTop) / 1.5, (Z_UOS - 1.5 - z) / 3);
-        p = Math.max(p, 42 * env * zt * zt * (3 - 2 * zt));   // panoesophageal pressurisation
-      }
-      if (colH > 0.05 && z > lesTop && z < lesTop + colH) p += 4 * Math.min(1, (lesTop + colH - z) / 1.2);
-      const lesW = Math.exp(-(((z - lesC) / 1.6) ** 2));
-      const dur = lerp(1, 0.55, clamp((z - 15.8) / 1.6, 0, 1)) * (1 + 0.9 * lesW) * (z < 15.5 ? P.durK : 1);
-      const ampK = 1 - 0.45 * lesW;
-      for (const w of allW) { const ta = w.arr[k]; if (!Number.isNaN(ta)) p += 1.15 * ampK * w.amp * shape(z, w.type) * pulse((t - ta) / dur); }
-      for (const g of segs) if (z >= g.lo && z <= g.hi) {
-        // intrabolus pressure: modest for a moving bolus, rises behind an obstructed EGJ while a wave pushes, near-baseline for a stalled bolus
-        const ed = g.stalled ? 2.5 : 0.8;
-        const tp = Math.min(1, (z - g.lo) / 0.8, (g.hi - z) / ed);
-        const ibp = g.stalled ? 4 : 9 + (g.retained && g.pushed ? 0.65 * lesP : 0);
-        p = Math.max(p, p + (ibp - p) * tp * tp * (3 - 2 * tp));
-      }
-      if (s > 0.8 && z < lesBot && z > hz) p = Math.max(p, Pg);
+      const z = zOf(k);
+      let p;
+      if (k < kTop) { p = 0; if (z > Z_UOS + 0.4 && tau < 3) p += 170 * pulseFast(tau - (0.12 + (ZS_TOP - z) / 14)); }
+      else if (k <= kBot) {
+        const e = pAt(k, A[k]) - ext[k] - act[k];   // elastic transmural part
+        p = ext[k] + act[k] + Math.max(0, e);
+        Ar[k] = A[k]; Cg[k] = C[k];
+        if (z < Z_UOS + 0.3 && z > lesBot - 0.3) bp[k] = A[k] > 0.25 ? 1 : (venting && z < Z_UOS - 0.6 ? 2 : 0);
+      } else { p = Pg; Ar[k] = 1.4; Cg[k] = 1; }
       col[k] = p;
-      // bolus presence on impedance at this level: 1 liquid, 2 gas
-      if (z < Z_UOS + 0.3 && z > lesBot - 0.3) {
-        let b = 0;
-        for (const g of segs) if (z >= g.lo && z <= g.hi) b = 1;
-        if (colH > 0.05 && z > lesTop - 0.2 && z < lesTop + colH) b = 1;
-        if (h > 0.05 && z <= lesBot + h && z < zCav) b = 1;
-        if (!b && venting && z < zCav && z < Z_UOS - 0.6) b = 2;
-        bp[k] = b;
-      }
     }
 
-    // multichannel intraluminal impedance at fixed catheter sites above the LES: liquid lowers impedance,
-    // gas raises it, a contraction briefly raises it, acid on the mucosa lowers the baseline
+    // impedance at fixed catheter sites: conductance of the column of fluid in parallel with the mucosa
     const imp = new Float32Array(IMP_D.length);
     for (let c = 0; c < IMP_D.length; c++) {
-      const z = lesTopRest + IMP_D[c];
-      let val = Math.max(1450, 2600 - (P.dilate ? 800 : 0) - 900 * residue * (z < lesBot + 9 ? 1 : 0));   // a lowered baseline is not bolus
-      for (const g of segs) if (z >= g.lo && z <= g.hi) val = Math.min(val, g.kind === 'solid' ? 900 : 450);
-      if (colH > 0.05 && z < lesTop + colH) val = Math.min(val, 500);
-      if (h > 0.05 && z <= lesBot + h && z < zCav) val = Math.min(val, 380);
-      if (venting && z < zCav && z < Z_UOS - 0.6 && val > 1300) val = Math.max(val, 7000);   // gas passes over, not through, a liquid column   // gas fills the whole oesophagus within a second
+      const z = lesTopRest + IMP_D[c], k = clamp(Math.round((ZS_TOP - z) / DZ), kTop, kBot);
+      const base = Math.max(1450, 2600 - (P.dilate ? 800 : 0) - 900 * residue * (z < lesBot + 9 ? 1 : 0));
+      let val = base;
+      if (A[k] > 0.12) { const sg = C[k] > 0.5 ? SIGMA.gastric : (solid ? SIGMA.solid : SIGMA.liquid); val = 1 / (1 / base + A[k] * sg); }
+      if (venting && z < Z_UOS - 0.6 && A[k] < 0.3) val = Math.max(val, 7000);
       for (const w of waves) val += 900 * Math.exp(-(((z - w.z) / 0.9) ** 2));
       impState[c] = i === 0 ? val : impState[c] + (val - impState[c]) * Math.min(1, DT / 0.12);
       imp[c] = impState[c];
     }
 
+    const drops = [];
+    for (const r of sw) {
+      if (r.entryStart == null) continue;
+      const streaming = t - r.lastIn < 0.15, age = streaming ? 0 : t - r.lastIn;
+      if (age > 10) continue;
+      drops.push({ frac: clamp(r.entered / V0, 0, 1), age, since: t - r.entryStart, streaming, kind: solid ? 'solid' : 'liquid' });
+    }
+    const ArD = new Float32Array(NZ);
+    for (let k = 0; k < NZ; k++) { let acc = 0, wsum = 0; for (let d = -2; d <= 2; d++) { const j = k + d; if (j < kTop || j > kBot) continue; const wv = [1, 4, 6, 4, 1][d + 2]; acc += wv * Ar[j]; wsum += wv; } ArD[k] = k >= kTop && k <= kBot ? acc / wsum : Ar[k]; }
+    let Vtot = pool + meal; for (let k = kTop; k <= kBot; k++) Vtot += A[k] * DZ;
+
     snaps[i] = {
-      t, insp, hz, imp, dilate: P.dilate, stasis: colH, wrap: P.flapK > 1.5, myotomy: P.flapK < 0.6, E, s, lesBot, lesTop, lesF, lesP, crusRaw, crusP, abdP, flapP, flap, kabd, overlap,
-      barrier, grad, ex, his, Pg, Poes, Pth, Pabd, h, gas: Math.max(0, gas), venting, residue,
-      waves: waves.map(w => ({ z: w.z, amp: w.amp, type: w.type })).concat(closeFront > -50 ? [{ z: closeFront, amp: 70 * vig, type: 'close' }] : []).concat(sw.flatMap(r => { const u = t - r.ts, zs = []; if (u >= 0.12 && u < 0.33) zs.push(ZS_TOP - 14 * (u - 0.12)); if (u >= 0.6 && u < 2.0) zs.push(Z_UOS - 3.9 * (u - 0.6)); return zs.map(z => ({ z, amp: 90, type: 'prox' })); })), uosP: Puos, bp, closeFront, lesBasal: P.les, segs, drops, state, uos, body,
-      sacAcid: sc.acid && s >= 1.5, acid: sc.acid, post: sc.post, tl: tl.active, tlOpen: tl.active ? 1 - tlF : 0, col
+      t, insp, hz, imp, dilate: P.dilate, stasis: 0, wrap: P.flapK > 1.5, myotomy: P.flapK < 0.6, E, s, lesBot, lesTop, lesF, lesP, crusRaw, crusP, abdP, flapP: flapPart, flap, kabd, overlap,
+      barrier, grad, ex: exS, his, Pg, Poes, Pth, Pabd, h, gas: Math.max(0, gas), venting, residue,
+      waves: waves.map(w => ({ z: w.z, amp: w.amp, type: w.type })).concat(closeFront > -50 ? [{ z: closeFront, amp: 70 * vig, type: 'close' }] : []).concat(sw.flatMap(r => { const u = t - r.ts, zs = []; if (u >= 0.12 && u < 0.33) zs.push(ZS_TOP - 14 * (u - 0.12)); if (u >= 0.6 && u < 2.0) zs.push(Z_UOS - 3.9 * (u - 0.6)); return zs.map(z => ({ z, amp: 90, type: 'prox' })); })), uosP: Puos, bp, closeFront, lesBasal: P.les, segs: [], drops, state, uos, body,
+      sacAcid: sc.acid && s >= 1.5, acid: sc.acid, post: sc.post, tl: tl.active, tlOpen: tl.active ? 1 - tlF : 0, col,
+      Ar, ArD, Cg, solid, nFail, Vrefl: VreflNow, inflow: inflowNow, pool, Vtot, Vin: V_in
     };
   }
   events.sort((x, y) => x.t - y.t);
@@ -709,13 +828,20 @@ function fitModel(R, x) {
   const P = Object.assign({}, BASE, x, { hernia: R.sep, crus: R.crus, pressurize: !!R.press });
   P.vigour = R.dci < 100 ? 0 : R.dci < 450 ? 0.45 : 1;
   P.les = Math.max(0, R.basal - 20); P.amp = Math.max(0.2, Math.pow(Math.max(R.dci, 100) / 1400, 0.65)); P.spd = 1;
-  let floor = clamp((R.irp - 6) / Math.max(P.les, 6), 0.08, 1), m;
-  for (let it = 0; it < 5; it++) {
+  let floor = clamp((R.irp - 6) / Math.max(P.les, 6), 0.08, 1), m, aLo = 0, aHi = 0;
+  const NIT = 7;
+  for (let it = 0; it < NIT; it++) {
     P.relax = (1 - floor) / 0.92;
     m = measure(P);
-    if (it === 4) break;
+    if (it === NIT - 1) break;
     P.les = clamp(P.les + (R.basal - m.basal), 0, 70);
-    if (P.vigour > 0) P.amp = m.dci > 5 ? clamp(P.amp * Math.pow(Math.max(R.dci, 100) / m.dci, 0.75), 0.15, 6) : P.amp * 1.8;
+    // DCI rises steeply once the wave clears the 20 mmHg isobar, so bracket the amplitude and bisect in log space
+    if (P.vigour > 0) {
+      const tgt = Math.max(R.dci, 100);
+      if (m.dci < tgt) { aLo = P.amp; P.amp = aHi ? Math.sqrt(aLo * aHi) : (m.dci > 5 ? P.amp * Math.pow(tgt / m.dci, 0.75) : P.amp * 1.8); }
+      else { aHi = P.amp; P.amp = aLo ? Math.sqrt(aLo * aHi) : P.amp * Math.pow(tgt / m.dci, 0.75); }
+      P.amp = clamp(P.amp, 0.15, 6);
+    }
     if (P.vigour > 0 && isFinite(m.dl) && isFinite(R.dl) && R.dl > 2.2) P.spd = clamp(P.spd * (m.dl - 1.9) / (R.dl - 1.9), 0.4, 6);
     floor = clamp(floor + 1.4 * (R.irp - m.irp) / Math.max(P.les, 6), 0.08, 1);
   }
@@ -778,57 +904,34 @@ function profile(S) {
   for (let iS = 0; iS <= nS; iS++) {
     const z = ZV - (ZV - S.lesBot) * iS / nS;
     const dil = z > S.lesTop - 0.3 ? (S.dilate || 0) * 1.6 * (u => u * u * (3 - 2 * u))(clamp((z - S.lesTop + 0.3) / 3.5, 0, 1)) : 0;
-    let r = 0.3 + dil, content = null;   // collapsed lumen core
-    if (S.stasis > 0.05 && z >= S.lesTop - 0.1 && z <= S.lesTop + S.stasis) { r = Math.max(r, 0.45 + dil * 0.9); content = 'liquid'; }
+    // lumen radius and contents come straight from the flow solution (area A → radius √(A/π) around the mucosal core)
+    const kf = (ZS_TOP - z) / DZ, k0 = clamp(Math.floor(kf), 0, NZ - 1), k1 = clamp(k0 + 1, 0, NZ - 1), fk = clamp(kf - k0, 0, 1);
+    const fs = fk * fk * (3 - 2 * fk), Az = S.ArD ? lerp(S.ArD[k0], S.ArD[k1], fs) : 0, cg = S.Cg ? lerp(S.Cg[k0], S.Cg[k1], fk) : 0;
+    let r = Math.max(0.3 + dil, 0.28 + Math.sqrt(Math.max(0, Az) / Math.PI)), content = null;
+    if (Az > 0.12) content = cg > 0.5 ? 'acid' : (S.solid ? 'solid' : 'liquid');
     const a = z <= S.lesTop ? z - Et : (z - Z_UOS * kk) / (1 - kk);
     const inL = a >= lesAnB && a <= lesAnT;
     const bump = inL ? Math.pow(Math.max(0, Math.sin(Math.PI * (a - lesAnB) / 3.5)), 0.7) : 0;
     let w = 0.38 + 0.12 * bump + (z > S.lesTop ? 0.3 * Math.max(0, kk) : 0);
     const lp = (inL && S.closeFront > -50) ? (z > S.closeFront ? S.lesBasal * 1.4 : S.lesBasal * 0.08) : S.lesP;
     let act = inL ? clamp(lp / 32, 0, 1) * bump : 0.06;
-    for (const g of S.segs) {
-      if (z >= g.lo && z <= g.hi) {
-        const tp = Math.min(1, Math.sqrt(Math.max(0, (z - g.lo) / 0.8)), (g.hi - z) / 0.35);
-        r = Math.max(r, g.r * (0.3 + 0.7 * tp)); content = g.kind;
-      } else if (z < g.lo && z > g.lo - 1.4 && bump > 0 && S.lesP < 0.5 * S.lesBasal) {
-        // a relaxed sphincter offers no resistance: the lumen just ahead of the bolus front eases open in a smooth funnel
-        const f = 1 - (g.lo - z) / 1.4;
-        r = Math.max(r, g.r * 0.45 * f * f);
-      }
-    }
-    // refluxate: a column with a rounded rising meniscus; the relaxed lumen just above it eases open rather than being forced
-    if (S.h > 0.05) {
-      const zTop = S.lesBot + S.h;
-      if (z <= zTop) {
-        const tp = clamp((zTop - z) / 0.6, 0, 1);
-        r = Math.max(r, 0.6 * (0.45 + 0.55 * Math.sqrt(tp))); if (!content) content = 'acid';
-      } else if (z < zTop + 0.8) {
-        const f = 1 - (z - zTop) / 0.8; r = Math.max(r, 0.6 * 0.6 * f * f);
-      }
-    }
-    if (S.venting && z < Z_UOS - 0.6) { r = Math.max(r, 0.55); if (!content) content = 'gas'; }
-    // pharynx above the cricopharyngeus: a wider, thin-walled funnel; the UOS squeezes the lumen shut except when it relaxes
+    if (S.venting && z < Z_UOS - 0.6 && !content) { r = Math.max(r, 0.55); content = 'gas'; }
+    // pharynx above the cricopharyngeus: a wider, thin-walled funnel
     const ph = clamp((z - Z_UOS - 0.4) / 2.2, 0, 1);
-    if (ph > 0) { r = Math.max(r, 0.3 + 0.75 * ph); w = lerp(w, 0.24, ph); if (!content) content = 'air'; }
+    if (ph > 0) { if (!content) r = Math.max(r, 0.3 + 0.75 * ph); w = lerp(w, 0.24, ph); if (!content) content = 'air'; }
     const uosB = Math.exp(-(((z - Z_UOS) / 0.55) ** 2)), uosA = clamp((S.uosP ?? 70) / 110, 0, 1);
     w += 0.24 * uosB;
-    r *= 1 - 0.85 * clamp((S.uosP ?? 70) / 60, 0, 1) * uosB;
-    if (bump > 0) r *= 1 - clamp(lp * bump / 14, 0, 0.93);
-    if (bump > 0 && S.tlOpen > 0) r = Math.max(r, 0.68 * S.tlOpen * Math.pow(1 - clamp((z - S.lesBot) / 3.5, 0, 1), 0.6));
-    const d = z - S.hz;
-    if (Math.abs(d) < 0.95) r *= 1 - clamp(S.crusRaw / 30, 0, 0.7) * Math.cos(d / 0.95 * Math.PI / 2);
+    if (!content) r *= 1 - 0.85 * clamp((S.uosP ?? 70) / 60, 0, 1) * uosB;
     for (const wv of S.waves) {
       const g = Math.exp(-(((z - wv.z) / 0.8) ** 2));
-      r *= 1 - 0.97 * g; w += 0.35 * g; act = Math.max(act, g * clamp(wv.amp / 80, 0.3, 1));
+      w += 0.35 * g; act = Math.max(act, g * clamp(wv.amp / 80, 0.3, 1));
     }
     // loss of tone is visible before any bolus arrives: the clenched lumen unfurls slightly and the wall softens a little
     if (bump > 0) {
       const rel = clamp(1 - lp / Math.max(1, S.lesBasal), 0, 1);
-      r = Math.max(r, 0.3 * bump * rel);
+      if (!content) r = Math.max(r, 0.3 * bump * rel);
       w *= 1 - 0.15 * rel * bump;
     }
-    // the relaxed LES is distended passively by the bolus, a little less than the body
-    if (bump > 0 && r > 0.8) r = lerp(r, 0.8, bump);
     // muscle volume is conserved: as the lumen stretches, the wall thins (no ballooning outer contour)
     const r0 = 0.3, wRest = w + 0.08 * bump;
     const thin = (ww) => Math.sqrt(r * r + ww * (ww + 2 * r0)) - r;
